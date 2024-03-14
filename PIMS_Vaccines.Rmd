@@ -1,0 +1,481 @@
+---
+title: "Vaccine"
+output: html_document
+date: "2023-12-08"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(ltm)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+library(patchwork)
+
+colors <- c("#1AAFBC", "#80634C")
+colors3<- c("green", "yellow")
+
+data <- read_csv("Results/data_wave.csv")
+data <- data[!is.na(data$wave), ,drop=F]
+dir <- "Results/Vaccine"
+
+data$vaccine<- factor(data$ppatient_vaccines_type___100, levels = c(0, 1), labels = c("None", "Yes"))
+
+data<- subset(data, data$wave=="O")
+
+
+#ICU
+data$ICU <- factor(data$p1_thr_pims_list___1, levels = c(0, 1), labels = c("no", "yes"))
+df4<- as.data.frame(table(data$ICU, data$vaccine))
+df4 <- tidyr::spread(df4, Var1, Freq)
+colnames(df4) <- c("factor", "no", "yes")
+df4$no_percentage <- (df4$no / (df4$no + df4$yes)) * 100
+df4$yes_percentage <- (df4$yes / (df4$no + df4$yes)) * 100
+df_long4 <- gather(df4, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c4=subset(df4, select= c(factor, no, yes))
+rownames(df_c4) <- df_c4[,1]
+df_c4=subset(df_c4, select= c(no, yes))
+chi4<- chisq.test(df_c4)
+
+p4 <- ggplot(df_long4, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("ICU") +
+  theme(axis.title.x = element_text(size = 9))+
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi4$p.value, 3)),hjust=1, vjust=1, size = 3)
+p4
+
+ggsave(filename = paste0(dir, "/ICU_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+
+#MV
+data$MV <- factor(data$pther_artif_resp_type___3, levels = c(0, 1), labels = c("no", "yes"))
+t6 <- table(data$MV, data$vaccine)
+df6<- as.data.frame(t6)
+df6 <- tidyr::spread(df6, Var1, Freq)
+colnames(df6) <- c("factor", "no", "yes")
+df6$no_percentage <- (df6$no / (df6$no + df6$yes)) * 100
+df6$yes_percentage <- (df6$yes / (df6$no + df6$yes)) * 100
+df_long6 <- gather(df6, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c6=subset(df6, select= c(factor, no, yes))
+rownames(df_c6) <- df_c6[,1]
+df_c6=subset(df_c6, select= c(no, yes))
+chi6<- chisq.test(df_c6)
+
+p6 <- ggplot(df_long6, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("MV") +
+  theme(axis.title.x = element_text(size = 9))+
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi6$p.value, 3)),hjust=1, vjust=1, size = 3)
+p6
+
+ggsave(filename = paste0(dir, "/MV_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Liver failure
+data$Liver <- factor(data$pcomp_liver_type___1, levels = c(0, 1), labels = c("no", "yes"))
+t15 <- table(data$Liver, data$vaccine)
+df15<- as.data.frame(t15)
+df15 <- tidyr::spread(df15, Var1, Freq)
+colnames(df15) <- c("factor", "no", "yes")
+df15$no_percentage <- (df15$no / (df15$no + df15$yes)) * 100
+df15$yes_percentage <- (df15$yes / (df15$no + df15$yes)) * 100
+df_long15 <- gather(df15, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c15=subset(df15, select= c(factor, no, yes))
+rownames(df_c15) <- df_c15[,1]
+df_c15=subset(df_c15, select= c(no, yes))
+chi15<- chisq.test(df_c15)
+
+p15 <- ggplot(df_long15, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Liver failure") + 
+  theme(axis.title.x = element_text(size = 9))+
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi15$p.value, 3)),hjust=1, vjust=1, size = 3)
+p15
+
+ggsave(filename = paste0(dir, "/Liver_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Kidney failure
+data$Kidney <- factor(data$pcomp_kidney_type___1, levels = c(0, 1), labels = c("no", "yes"))
+t16 <- table(data$Kidney, data$vaccine)
+df16<- as.data.frame(t16)
+df16 <- tidyr::spread(df16, Var1, Freq)
+colnames(df16) <- c("factor", "no", "yes")
+df16$no_percentage <- (df16$no / (df16$no + df16$yes)) * 100
+df16$yes_percentage <- (df16$yes / (df16$no + df16$yes)) * 100
+df_long16 <- gather(df16, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c16=subset(df16, select= c(factor, no, yes))
+rownames(df_c16) <- df_c16[,1]
+df_c16=subset(df_c16, select= c(no, yes))
+chi16<- chisq.test(df_c16)
+
+p16 <- ggplot(df_long16, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Kidney failure") + 
+  theme(axis.title.x = element_text(size = 9))+
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi16$p.value, 3)),hjust=1, vjust=1, size = 3)
+p16
+
+ggsave(filename = paste0(dir, "/Kidney_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+
+```
+
+```{r}
+#clinical presentation
+#Kawasaki
+data$Kawasaki <- factor(data$case_eval_pims, levels = c(1,2,3), labels = c("no", "yes", "yes"))
+t23 <- table(data$Kawasaki, data$vaccine)
+df23<- as.data.frame(t23)
+df23 <- tidyr::spread(df23, Var1, Freq)
+colnames(df23) <- c("factor", "no", "yes")
+df23$no_percentage <- (df23$no / (df23$no + df23$yes)) * 100
+df23$yes_percentage <- (df23$yes / (df23$no + df23$yes)) * 100
+df_long23 <- gather(df23, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c23=subset(df23, select= c(factor, no, yes))
+rownames(df_c23) <- df_c23[,1]
+df_c23=subset(df_c23, select= c(no, yes))
+chi23<- chisq.test(df_c23)
+
+p23 <- ggplot(df_long23, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Kawasaki features") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi23$p.value, 3)),hjust=1, vjust=1, size = 3)
+p23
+
+ggsave(filename = paste0(dir, "/Kawasaki_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#respiratory
+data$Resp <- factor(data$p1_sy_sympt_type___2, levels = c(0, 1), labels = c("no", "yes"))
+t12 <- table(data$Resp, data$vaccine)
+df12<- as.data.frame(t12)
+df12 <- tidyr::spread(df12, Var1, Freq)
+colnames(df12) <- c("factor", "no", "yes")
+df12$no_percentage <- (df12$no / (df12$no + df12$yes)) * 100
+df12$yes_percentage <- (df12$yes / (df12$no + df12$yes)) * 100
+df_long12 <- gather(df12, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c12=subset(df12, select= c(factor, no, yes))
+rownames(df_c12) <- df_c12[,1]
+df_c12=subset(df_c12, select= c(no, yes))
+chi12<- chisq.test(df_c12)
+
+p12 <- ggplot(df_long12, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Respiratory") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi12$p.value, 3)),hjust=1, vjust=1, size = 3)
+p12
+
+ggsave(filename = paste0(dir, "/sympt_Resp_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#pARDS
+data$pARDS <- factor(data$pdiag_on_discharge_list___4, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$pARDS, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("pARDS") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/pARDS_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Cardiocirculatory
+data$Cardio <- factor(data$p1_sy_sympt_type___3, levels = c(0, 1), labels = c("no", "yes"))
+t13 <- table(data$Cardio, data$vaccine)
+df13<- as.data.frame(t13)
+df13 <- tidyr::spread(df13, Var1, Freq)
+colnames(df13) <- c("factor", "no", "yes")
+df13$no_percentage <- (df13$no / (df13$no + df13$yes)) * 100
+df13$yes_percentage <- (df13$yes / (df13$no + df13$yes)) * 100
+df_long13 <- gather(df13, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c13=subset(df13, select= c(factor, no, yes))
+rownames(df_c13) <- df_c13[,1]
+df_c13=subset(df_c13, select= c(no, yes))
+chi13<- chisq.test(df_c13)
+
+p13 <- ggplot(df_long13, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Cardiocirculatory") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi13$p.value, 3)),hjust=1, vjust=1, size = 3)
+p13
+
+ggsave(filename = paste0(dir, "/sympt_Cardio_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Heart failure
+data$heartf <- factor(data$pcomp_cardiac_type___4, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$heartf, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Heart failure") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/heartf_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Hypotension
+data$hypotens <- factor(data$pcomp_cardiac_type___20, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$hypotens, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Hypotension") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/hypotens_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+
+
+
+#Stomach pain
+data$stompain <- factor(data$pcomp_gastro_type___10, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$stompain, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Stomach pain") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/stompain_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Weight loss
+data$weight <- factor(data$pcomp_gastro_type___16, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$weight, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Weight loss") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/weight_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Taste loss
+data$Taste <- factor(data$pcomp_ent_type___3, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$Taste, data$vaccine))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Taste loss") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/Taste_vacc.png"), dpi=600, height = 3, width = 2.4)
+
+#Musculosceletal
+data$Musculosceletal <- factor(data$p1_sy_sympt_type___8, levels = c(0, 1), labels = c("no", "yes"))
+t18 <- table(data$Musculosceletal, data$vaccine)
+df18<- as.data.frame(t18)
+df18 <- tidyr::spread(df18, Var1, Freq)
+colnames(df18) <- c("factor", "no", "yes")
+df18$no_percentage <- (df18$no / (df18$no + df18$yes)) * 100
+df18$yes_percentage <- (df18$yes / (df18$no + df18$yes)) * 100
+df_long18 <- gather(df18, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c18=subset(df18, select= c(factor, no, yes))
+rownames(df_c18) <- df_c18[,1]
+df_c18=subset(df_c18, select= c(no, yes))
+chi18<- chisq.test(df_c18)
+
+p18 <- ggplot(df_long18, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Musculosceletal") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi18$p.value, 3)),hjust=1, vjust=1, size = 3)
+p18
+
+ggsave(filename = paste0(dir, "/sympt_Musculosceletal_vacc.png"), dpi=600, height = 3, width = 2.4)
+```
+
+
+
+```{r}
+#Number of organsystem involvement
+data$clin_score <- rowSums(data[, c("p1_sy_sympt_type___1", "p1_sy_sympt_type___2", "p1_sy_sympt_type___3", "p1_sy_sympt_type___4", "p1_sy_sympt_type___5", "p1_sy_sympt_type___6", "p1_sy_sympt_type___7", "p1_sy_sympt_type___8", "p1_sy_sympt_type___9", "p1_sy_sympt_type___10", "p1_sy_sympt_type___11", "p1_sy_sympt_type___12", "p1_sy_sympt_type___13", "p1_sy_sympt_type___14")])
+
+res.aov <- aov(clin_score ~ vaccine, data = data)
+summary(res.aov)
+pv_1<- TukeyHSD(res.aov)
+pv_1 <- as.data.frame(pv_1$vaccine)
+pv_1$diff <- round(pv_1$diff, 1)
+pv_1 <- pv_1[, c("diff", "p adj")]
+
+c_s <- ggplot(data, aes(x=vaccine, y=clin_score))+
+  geom_boxplot(aes(x = factor(vaccine)), color=colors3)+
+  labs(x = "COVID-19 vaccine", y = "N° of organ systems")+
+  theme_minimal() + 
+  ggtitle("N° of affected organ systems")
+c_s.tab <- tableGrob(round(pv_1, 4))
+c_s.plot<- c_s+c_s.tab +plot_layout(ncol = 2)
+c_s.plot
+
+ggsave(filename = paste0(dir, "/N° of organ systems.png"), dpi=600, height = 3, width = 4)
+```
+
+```{r}
+#outcome
+colors.out <- c("#c82c01","#92ffc4", "#6897bb") 
+level.out <- c("Irrev_percentage", "Rev_percentage", "Rest_percentage")
+
+data$outcome <- factor(data$p1_outcome_list, levels = c(1,2, 3, -88), labels = c("Restitutio", "Reversible", "Irreversible", "Unknown"))
+out <- as.data.frame(table(data$outcome, data$vaccine))
+out <- tidyr::spread(out, Var1, Freq)
+out$Rest_percentage <- (out$Restitutio / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Rev_percentage <- (out$Reversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Irrev_percentage <- (out$Irreversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out_long <- gather(out, key = "Response", value = "percentage", Rest_percentage, Rev_percentage, Irrev_percentage)
+
+out_long$Response <- factor(out_long$Response, levels = level.out)
+
+data$Irrev <- data$outcome == 'Irreversible'
+c.out <- table(data$vaccine, data$Irrev)
+chi_out <- chisq.test(c.out)
+chi_out
+
+data$Rev <- data$outcome == 'Reversible'
+c.rev.out <- table(data$vaccine, data$Rev)
+chi_rev_out <- chisq.test(c.rev.out)
+chi_rev_out
+
+out.plot<- ggplot(out_long, aes(x = Var2, y=percentage, fill = Response)) +
+  geom_bar(position = "stack", stat="identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors.out, labels = c("Irreversible", "Reversible", "Restitutio")) + 
+  ylab("Percentage") + xlab("COVID-19 vaccine") + 
+  ggtitle("Outcome") + 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi_out$p.value, 3)), hjust=1, vjust=1, size = 3)
+out.plot
+
+ggsave(filename = paste0(dir, "/outcome.png"), dpi=600, height = 3, width = 3)
+```
+

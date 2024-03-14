@@ -1,0 +1,112 @@
+---
+title: "Therapy"
+output: html_document
+date: "2023-12-08"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(ltm)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+library(patchwork)
+
+colors5 <- c("#00203FFF", "#ADEFD1FF")
+
+data <- read_csv("Results/data_wave.csv")
+data <- data[!is.na(data$wave), ,drop=F]
+dir <- "Results/Therapy"
+
+data$Steroids <- factor(data$pther_immun_mod_type___2, levels = c(0, 1), labels = c("no", "yes"))
+data$IVIGs <- factor(data$pther_immun_mod_type___13, levels = c(0, 1), labels = c("no", "yes"))
+data$therapy <- ifelse(data$Steroids == "yes" & data$IVIGs == "yes", "yes", "no")
+
+#ICU
+data$ICU <- factor(data$p1_thr_pims_list___1, levels = c(0, 1), labels = c("no", "yes"))
+t4 <- table(data$ICU, data$therapy)
+df4<- as.data.frame(t4)
+df4 <- tidyr::spread(df4, Var1, Freq)
+colnames(df4) <- c("factor", "no", "yes")
+df4$no_percentage <- (df4$no / (df4$no + df4$yes)) * 100
+df4$yes_percentage <- (df4$yes / (df4$no + df4$yes)) * 100
+df_long4 <- gather(df4, key = "Response", value = "percentage", no_percentage, yes_percentage)
+
+df_c4=subset(df4, select= c(factor, no, yes))
+rownames(df_c4) <- df_c4[,1]
+df_c4=subset(df_c4, select= c(no, yes))
+chi4<- chisq.test(df_c4)
+
+p4 <- ggplot(df_long4, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors5, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Therapy") + 
+  ggtitle("ICU") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = c("white", "white", "black", "black"))+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi4$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  scale_x_discrete(labels = c("no" = "Incomplete", "yes" = "Complete"))
+p4
+
+ggsave(filename = paste0(dir, "/ICU_therapy.png"), dpi=600, height = 3, width = 2.9)
+
+
+#outcome
+colors.out <- c("#c82c01","#92ffc4", "#6897bb") 
+level.out <- c("Irrev_percentage", "Rev_percentage", "Rest_percentage")
+level.th <- c("no", "yes")
+
+data$outcome <- factor(data$p1_outcome_list, levels = c(1,2, 3, -88), labels = c("Restitutio", "Reversible", "Irreversible", "Unknown"))
+out <- as.data.frame(table(data$outcome, data$therapy))
+out <- tidyr::spread(out, Var1, Freq)
+out$Rest_percentage <- (out$Restitutio / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Rev_percentage <- (out$Reversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Irrev_percentage <- (out$Irreversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out_long <- gather(out, key = "Response", value = "percentage", Rest_percentage, Rev_percentage, Irrev_percentage)
+out_long$Var2 <- factor(out_long$Var2, levels = level.th)
+
+out_long$Response <- factor(out_long$Response, levels = level.out)
+
+data$Irrev <- data$outcome == 'Irreversible'
+c.out <- table(data$wave, data$Irrev)
+chi_out <- chisq.test(c.out)
+chi_out
+
+data$Rev <- data$outcome == 'Reversible'
+c.rev.out <- table(data$wave, data$Rev)
+chi_rev_out <- chisq.test(c.rev.out)
+chi_rev_out
+
+out.plot<- ggplot(out_long, aes(x = Var2, y=percentage, fill = Response)) +
+  geom_bar(position = "stack", stat="identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors.out, labels = c("Irreversible", "Reversible", "Restitutio")) + 
+  ylab("Percentage") + xlab("Therapy") + 
+  ggtitle("Outcome") + 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi_out$p.value, 3)), hjust=1, vjust=1, size = 3)+
+  scale_x_discrete(labels = c("no" = "Incomplete", "yes" = "Complete"))
+out.plot
+
+ggsave(filename = paste0(dir, "/outcome_therapy.png"), dpi=600, height = 3, width = 3.3)
+
+
+
+```
+
+```{r}
+#additional analyses
+
+outcome
+
+
+
+```
+

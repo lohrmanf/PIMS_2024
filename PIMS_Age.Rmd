@@ -1,0 +1,1058 @@
+---
+title: "Age"
+output: html_document
+date: "2024-02-01"
+editor_options: 
+  chunk_output_type: console
+---
+#setup
+```{r setup, include=FALSE}
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(ltm)
+library(gridExtra)
+library(grid)
+library(patchwork)
+library(ggpmisc)
+library(ggpubr)
+
+data <- read_csv("Results/data_wave.csv")
+data <- data[!is.na(data$wave), ,drop=F]
+
+level=c("<1", "1-5", "6-11", ">11")
+colors <- c("no_percentage" = "#606060FF", "yes_percentage" = "#D6ED17FF")
+colors2 <- c("#FFC0CB", "#85d6c2", "#106a8c", "#263a55")
+
+dir <- "Results/Age"
+
+data$Age.group <- cut(data$ppatient_age_years, breaks = c("-Inf", "0", "5", "11", "Inf"), labels = c("<1", "1-5", "6-11", ">11"), include.lowest = T)
+
+data$Age.months <- data$ppatient_age_months
+data$Age.months[is.na(data$Age.months)]<- "0"
+data$Age.years <- data$ppatient_age_years
+data$Age.months <- as.numeric(data$Age.months)
+data$Age.years <- as.numeric(data$Age.years)
+
+data$Age.dec <- data$Age.years + data$Age.months/12
+```
+
+
+#Figure 1
+```{r}
+#comorbidity
+data$comorbidity <- factor(data$pcomorb_pims_chk, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+t1 <- table(data$comorbidity, data$Age.group)
+df1<- as.data.frame(t1)
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = c("<1", "1-5", "6-11", ">11"))
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Comorbidity") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/comorbidity_Age.png"), dpi=600, height = 3, width = 3)
+
+
+#Adipositas 
+data$adipos <- factor(data$pcomorb_other_type___1, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$adipos, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Obesity") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/adipos_age.png"), dpi=600, height = 3, width = 3)
+
+#pulmonary comorbidity
+data$pulm <- factor(data$p1_comorb_list___1, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$pulm, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Pulmonary comorbidity") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/pulm_comorb_age.png"), dpi=600, height = 3, width = 3)
+```
+
+
+#Figure 2
+```{r}
+#clinical presentation
+#Kawasaki
+data$Kawasaki <- factor(data$case_eval_pims, levels = c(1,2,3), labels = c("no", "yes", "yes"))
+t23 <- table(data$Kawasaki, data$Age.group)
+df23<- as.data.frame(t23)
+df23 <- tidyr::spread(df23, Var1, Freq)
+colnames(df23) <- c("factor", "no", "yes")
+df23$no_percentage <- (df23$no / (df23$no + df23$yes)) * 100
+df23$yes_percentage <- (df23$yes / (df23$no + df23$yes)) * 100
+df_long23 <- gather(df23, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long23$factor <- factor(df_long23$factor, levels = level)
+
+df_c23=subset(df23, select= c(factor, no, yes))
+rownames(df_c23) <- df_c23[,1]
+df_c23=subset(df_c23, select= c(no, yes))
+chi23<- chisq.test(df_c23)
+
+p23 <- ggplot(df_long23, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Kawasaki features") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi23$p.value, 3)),hjust=1, vjust=1, size = 3)
+p23
+
+ggsave(filename = paste0(dir, "/Kawasaki_Age.png"), dpi=600, height = 3, width = 3)
+
+#respiratory
+data$Resp <- factor(data$p1_sy_sympt_type___2, levels = c(0, 1), labels = c("no", "yes"))
+t12 <- table(data$Resp, data$Age.group)
+df12<- as.data.frame(t12)
+df12 <- tidyr::spread(df12, Var1, Freq)
+colnames(df12) <- c("factor", "no", "yes")
+df12$no_percentage <- (df12$no / (df12$no + df12$yes)) * 100
+df12$yes_percentage <- (df12$yes / (df12$no + df12$yes)) * 100
+df_long12 <- gather(df12, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long12$factor <- factor(df_long12$factor, levels = level)
+
+df_c12=subset(df12, select= c(factor, no, yes))
+rownames(df_c12) <- df_c12[,1]
+df_c12=subset(df_c12, select= c(no, yes))
+chi12<- chisq.test(df_c12)
+
+p12 <- ggplot(df_long12, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Respiratory") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi12$p.value, 3)),hjust=1, vjust=1, size = 3)
+p12
+
+ggsave(filename = paste0(dir, "/sympt_Resp_Age.png"), dpi=600, height = 3, width = 3)
+
+#pARDS
+data$pARDS <- factor(data$pdiag_on_discharge_list___4, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$pARDS, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("pARDS") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/pARDS_Age.png"), dpi=600, height = 3, width = 3)
+
+#Cardiocirculatory
+data$Cardio <- factor(data$p1_sy_sympt_type___3, levels = c(0, 1), labels = c("no", "yes"))
+t13 <- table(data$Cardio, data$Age.group)
+df13<- as.data.frame(t13)
+df13 <- tidyr::spread(df13, Var1, Freq)
+colnames(df13) <- c("factor", "no", "yes")
+df13$no_percentage <- (df13$no / (df13$no + df13$yes)) * 100
+df13$yes_percentage <- (df13$yes / (df13$no + df13$yes)) * 100
+df_long13 <- gather(df13, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long13$factor <- factor(df_long13$factor, levels = level)
+
+df_c13=subset(df13, select= c(factor, no, yes))
+rownames(df_c13) <- df_c13[,1]
+df_c13=subset(df_c13, select= c(no, yes))
+chi13<- chisq.test(df_c13)
+
+p13 <- ggplot(df_long13, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Cardiocirculatory") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi13$p.value, 3)),hjust=1, vjust=1, size = 3)
+p13
+
+ggsave(filename = paste0(dir, "/sympt_Cardio_Age.png"), dpi=600, height = 3, width = 3)
+
+#Heart failure
+data$heartf <- factor(data$pcomp_cardiac_type___4, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$heartf, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Heart failure") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/heartf_Age.png"), dpi=600, height = 3, width = 3)
+
+#Hypotension
+data$hypotens <- factor(data$pcomp_cardiac_type___20, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$hypotens, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Hypotension") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/hypotens_Age.png"), dpi=600, height = 3, width = 3)
+
+
+#Liver failure
+data$Liver <- factor(data$pcomp_liver_type___1, levels = c(0, 1), labels = c("no", "yes"))
+t15 <- table(data$Liver, data$Age.group)
+df15<- as.data.frame(t15)
+df15 <- tidyr::spread(df15, Var1, Freq)
+colnames(df15) <- c("factor", "no", "yes")
+df15$no_percentage <- (df15$no / (df15$no + df15$yes)) * 100
+df15$yes_percentage <- (df15$yes / (df15$no + df15$yes)) * 100
+df_long15 <- gather(df15, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long15$factor <- factor(df_long15$factor, levels = level)
+
+df_c15=subset(df15, select= c(factor, no, yes))
+rownames(df_c15) <- df_c15[,1]
+df_c15=subset(df_c15, select= c(no, yes))
+chi15<- chisq.test(df_c15)
+
+p15 <- ggplot(df_long15, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Liver failure") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi15$p.value, 3)),hjust=1, vjust=1, size = 3)
+p15
+
+ggsave(filename = paste0(dir, "/Liver_Age.png"), dpi=600, height = 3, width = 3)
+
+#Kidney failure
+data$Kidney <- factor(data$pcomp_kidney_type___1, levels = c(0, 1), labels = c("no", "yes"))
+t16 <- table(data$Kidney, data$Age.group)
+df16<- as.data.frame(t16)
+df16 <- tidyr::spread(df16, Var1, Freq)
+colnames(df16) <- c("factor", "no", "yes")
+df16$no_percentage <- (df16$no / (df16$no + df16$yes)) * 100
+df16$yes_percentage <- (df16$yes / (df16$no + df16$yes)) * 100
+df_long16 <- gather(df16, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long16$factor <- factor(df_long16$factor, levels = level)
+
+df_c16=subset(df16, select= c(factor, no, yes))
+rownames(df_c16) <- df_c16[,1]
+df_c16=subset(df_c16, select= c(no, yes))
+chi16<- chisq.test(df_c16)
+
+p16 <- ggplot(df_long16, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Kidney failure") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi16$p.value, 3)),hjust=1, vjust=1, size = 3)
+p16
+
+ggsave(filename = paste0(dir, "/Kidney_Age.png"), dpi=600, height = 3, width = 3)
+
+#Stomach pain
+data$stompain <- factor(data$pcomp_gastro_type___10, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$stompain, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Stomach pain") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/stompain_Age.png"), dpi=600, height = 3, width = 3)
+
+#Weight loss
+data$weight <- factor(data$pcomp_gastro_type___16, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$weight, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Weight loss") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/weight_Age.png"), dpi=600, height = 3, width = 3)
+
+#Taste loss
+data$Taste <- factor(data$pcomp_ent_type___3, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$Taste, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Taste loss") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/Taste_Age.png"), dpi=600, height = 3, width = 3)
+
+#Musculosceletal
+data$Musculosceletal <- factor(data$p1_sy_sympt_type___8, levels = c(0, 1), labels = c("no", "yes"))
+t18 <- table(data$Musculosceletal, data$Age.group)
+df18<- as.data.frame(t18)
+df18 <- tidyr::spread(df18, Var1, Freq)
+colnames(df18) <- c("factor", "no", "yes")
+df18$no_percentage <- (df18$no / (df18$no + df18$yes)) * 100
+df18$yes_percentage <- (df18$yes / (df18$no + df18$yes)) * 100
+df_long18 <- gather(df18, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long18$factor <- factor(df_long18$factor, levels = level)
+
+df_c18=subset(df18, select= c(factor, no, yes))
+rownames(df_c18) <- df_c18[,1]
+df_c18=subset(df_c18, select= c(no, yes))
+chi18<- chisq.test(df_c18)
+
+p18 <- ggplot(df_long18, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Musculosceletal") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi18$p.value, 3)),hjust=1, vjust=1, size = 3)
+p18
+
+ggsave(filename = paste0(dir, "/sympt_Musculosceletal_Age.png"), dpi=600, height = 3, width = 3)
+```
+
+
+#Figure 3
+```{r}
+theme_set(
+  theme_minimal() +
+    theme(legend.position = "top"))
+
+
+p1<- ggscatter(data, x = "Age.dec", y = "plab_crp_si_value",
+          add = "reg.line", conf.int = TRUE,    
+          add.params = list(fill = "lightgray", color="black"),
+          ggtheme = theme_minimal(), shape=1, color="cornflowerblue", size=3)+
+  stat_cor(method = "pearson", 
+           label.x = 0.3, label.y = 480)+
+  labs(x = "Age (years)", y = "mg/l")+
+  ggtitle("CRP")
+p1
+
+ggsave(filename = paste0(dir, "/Age-CRP.png"), dpi=600, height = 3, width = 4)
+
+
+p2<- ggscatter(data, x = "Age.dec", y = "plab_quick_value",
+          add = "reg.line", conf.int = TRUE,    
+          add.params = list(fill = "lightgray", color="black"),
+          ggtheme = theme_minimal(), shape=1, color="cornflowerblue", size=3)+
+  stat_cor(method = "pearson", 
+           label.x = 0.3, label.y = 140)+
+  labs(x = "Age (years)", y = "%")+
+  ggtitle("Quick")
+p2
+
+ggsave(filename = paste0(dir, "/Age-Quick.png"), dpi=600, height = 3, width = 4)
+
+
+p3<- ggscatter(data, x = "Age.dec", y = "plab_thrombocyte_si_value",
+          add = "reg.line", conf.int = TRUE,    
+          add.params = list(fill = "lightgray", color="black"),
+          ggtheme = theme_minimal(), shape=1, color="cornflowerblue", size=3)+
+  stat_cor(method = "pearson", 
+           label.x = 0.3, label.y = 3.5)+
+  labs(x = "Age (years)", y = "per nl (log10)")+
+  ggtitle("Thrombocytes")+
+  scale_y_log10()
+p3
+
+ggsave(filename = paste0(dir, "/Age-Thrombocytes.png"), dpi=600, height = 3, width = 4)
+
+p4<- ggscatter(data, x = "Age.dec", y = "plab_lymphocyte_si_value",
+          add = "reg.line", conf.int = TRUE,    
+          add.params = list(fill = "lightgray", color="black"),
+          ggtheme = theme_minimal(), shape=1, color="cornflowerblue", size=3)+
+  stat_cor(method = "pearson", 
+           label.x = 0.3, label.y = 5)+
+  labs(x = "Age (years)", y = "per µl (log10)")+
+  ggtitle("Lymphocytes")+
+  scale_y_log10()
+p4
+
+ggsave(filename = paste0(dir, "/Age-Lymphocytes.png"), dpi=600, height = 3, width = 4)
+
+
+```
+
+
+#Figure 4
+```{r}
+#Coinfection pulmo
+data$coinfection <- factor(data$p1_coinfect_list___2, levels = c(0,1), labels = c("no", "yes"))
+df24<- as.data.frame(table(data$coinfection, data$Age.group))
+df24 <- tidyr::spread(df24, Var1, Freq)
+colnames(df24) <- c("factor", "no", "yes")
+df24$no_percentage <- (df24$no / (df24$no + df24$yes)) * 100
+df24$yes_percentage <- (df24$yes / (df24$no + df24$yes)) * 100
+df_long24 <- gather(df24, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long24$factor <- factor(df_long24$factor, levels = level)
+
+df_c24=subset(df24, select= c(factor, no, yes))
+rownames(df_c24) <- df_c24[,1]
+df_c24=subset(df_c24, select= c(no, yes))
+chi24<- chisq.test(df_c24)
+
+p24 <- ggplot(df_long24, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Bacterial coinfection") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi24$p.value, 3)),hjust=1, vjust=1, size = 3)
+p24
+
+ggsave(filename = paste0(dir, "/Coinfection_lung_Age.png"), dpi=600, height = 3, width = 3)
+
+#Coinfection pulmo - viral
+data$coinfection_vir <- factor(data$p1_coinfect_list___1, levels = c(0,1), labels = c("no", "yes"))
+df26<- as.data.frame(table(data$coinfection_vir, data$Age.group))
+df26 <- tidyr::spread(df26, Var1, Freq)
+colnames(df26) <- c("factor", "no", "yes")
+df26$no_percentage <- (df26$no / (df26$no + df26$yes)) * 100
+df26$yes_percentage <- (df26$yes / (df26$no + df26$yes)) * 100
+df_long26 <- gather(df26, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long26$factor <- factor(df_long26$factor, levels = level)
+
+df_c26=subset(df26, select= c(factor, no, yes))
+rownames(df_c26) <- df_c26[,1]
+df_c26=subset(df_c26, select= c(no, yes))
+chi26<- chisq.test(df_c26)
+
+p26 <- ggplot(df_long26, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Viral coinfection") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi26$p.value, 3)),hjust=1, vjust=1, size = 3)
+p26
+
+ggsave(filename = paste0(dir, "/Coinfection_lung-viral_Age.png"), dpi=600, height = 3, width = 3)
+
+
+#imaging
+#infiltrates
+data$infil <- factor(data$pimg_thor_infil_yesno, levels = c(0,1, -99), labels = c("no", "yes", "unknown"))
+data$infil[is.na(data$infil)] <- "unknown"
+df28<- as.data.frame(table(data$infil, data$Age.group))
+df28 <- tidyr::spread(df28, Var1, Freq)
+colnames(df28) <- c("factor", "no", "yes", "unknown")
+df28$no_percentage <- (df28$no / (df28$no + df28$yes + df28$unknown)) * 100
+df28$yes_percentage <- (df28$yes / (df28$no + df28$yes + df28$unknown)) * 100
+df_long28 <- gather(df28, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long28$factor <- factor(df_long28$factor, levels = level)
+
+df_c28=subset(df28, select= c(factor, no, yes))
+rownames(df_c28) <- df_c28[,1]
+df_c28=subset(df_c28, select= c(no, yes))
+chi28<- chisq.test(df_c28)
+
+p28 <- ggplot(df_long28, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Pulmonary infiltrates") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi28$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p28
+
+ggsave(filename = paste0(dir, "/infiltrates_Age.png"), dpi=600, height = 3, width = 3)
+
+#Pleural effusion
+data$pleur <- factor(data$pimg_thor_pleur_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$pleur[is.na(data$pleur)] <- "unknown"
+df29<- as.data.frame(table(data$pleur, data$Age.group))
+df29 <- tidyr::spread(df29, Var1, Freq)
+colnames(df29) <- c("factor", "no", "yes", "unknown")
+df29$no_percentage <- (df29$no / (df29$no + df29$yes + df29$unknown)) * 100
+df29$yes_percentage <- (df29$yes / (df29$no + df29$yes + df29$unknown)) * 100
+df_long29 <- gather(df29, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long29$factor <- factor(df_long29$factor, levels = level)
+
+df_c29=subset(df29, select= c(factor, no, yes))
+rownames(df_c29) <- df_c29[,1]
+df_c29=subset(df_c29, select= c(no, yes))
+chi29<- chisq.test(df_c29)
+
+p29 <- ggplot(df_long29, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Pleural effusion") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi29$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p29
+
+ggsave(filename = paste0(dir, "/Pleural effusion_Age.png"), dpi=600, height = 3, width = 3)
+
+#Pericardial effusion
+data$peric <- factor(data$pimg_echo_pericard_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$peric[is.na(data$peric)] <- "unknown"
+df31<- as.data.frame(table(data$peric, data$Age.group))
+df31 <- tidyr::spread(df31, Var1, Freq)
+colnames(df31) <- c("factor", "no", "yes", "unknown")
+df31$no_percentage <- (df31$no / (df31$no + df31$yes + df31$unknown)) * 100
+df31$yes_percentage <- (df31$yes / (df31$no + df31$yes + df31$unknown)) * 100
+df_long31 <- gather(df31, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long31$factor <- factor(df_long31$factor, levels = level)
+
+df_c31=subset(df31, select= c(factor, no, yes))
+rownames(df_c31) <- df_c31[,1]
+df_c31=subset(df_c31, select= c(no, yes))
+chi31<- chisq.test(df_c31)
+
+p31 <- ggplot(df_long31, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Pericardial effusion") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi31$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p31
+
+ggsave(filename = paste0(dir, "/Pericardial effusion_Age.png"), dpi=600, height = 3, width = 3)
+
+#Myocardial dysfunction
+data$myoc <- factor(data$pimg_echo_myocard_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$myoc[is.na(data$myoc)] <- "unknown"
+df32<- as.data.frame(table(data$myoc, data$Age.group))
+df32 <- tidyr::spread(df32, Var1, Freq)
+colnames(df32) <- c("factor", "no", "yes", "unknown")
+df32$no_percentage <- (df32$no / (df32$no + df32$yes + df32$unknown)) * 100
+df32$yes_percentage <- (df32$yes / (df32$no + df32$yes + df32$unknown)) * 100
+df_long32 <- gather(df32, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long32$factor <- factor(df_long32$factor, levels = level)
+
+df_c32=subset(df32, select= c(factor, no, yes))
+rownames(df_c32) <- df_c32[,1]
+df_c32=subset(df_c32, select= c(no, yes))
+chi32<- chisq.test(df_c32)
+
+p32 <- ggplot(df_long32, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Myocardial dysfunction") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi32$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p32
+
+ggsave(filename = paste0(dir, "/Myocardial dysfunction_Age.png"), dpi=600, height = 3, width = 3)
+
+#Ascites
+data$ascites <- factor(data$pimg_abdo_aszit_yesno, levels = c(0,1, -99), labels = c("no", "yes", "unknown"))
+data$ascites[is.na(data$ascites)] <- "unknown"
+df27<- as.data.frame(table(data$ascites, data$Age.group))
+df27 <- tidyr::spread(df27, Var1, Freq)
+colnames(df27) <- c("factor", "no", "yes", "unknown")
+df27$no_percentage <- (df27$no / (df27$no + df27$yes + df27$unknown)) * 100
+df27$yes_percentage <- (df27$yes / (df27$no + df27$yes + df27$unknown)) * 100
+df_long27 <- gather(df27, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long27$factor <- factor(df_long27$factor, levels = level)
+
+df_c27=subset(df27, select= c(factor, no, yes))
+rownames(df_c27) <- df_c27[,1]
+df_c27=subset(df_c27, select= c(no, yes))
+chi27<- chisq.test(df_c27)
+
+p27 <- ggplot(df_long27, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Ascites") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi27$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p27
+
+ggsave(filename = paste0(dir, "/ascites.png"), dpi=600, height = 3, width = 3)
+
+#colon
+data$colon <- factor(data$pimg_abdo_colon_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$colon[is.na(data$colon)] <- "unknown"
+df33<- as.data.frame(table(data$colon, data$Age.group))
+df33 <- tidyr::spread(df33, Var1, Freq)
+colnames(df33) <- c("factor", "no", "yes", "unknown")
+df33$no_percentage <- (df33$no / (df33$no + df33$yes + df33$unknown)) * 100
+df33$yes_percentage <- (df33$yes / (df33$no + df33$yes + df33$unknown)) * 100
+df_long33 <- gather(df33, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long33$factor <- factor(df_long33$factor, levels = level)
+
+df_c33=subset(df33, select= c(factor, no, yes))
+rownames(df_c33) <- df_c33[,1]
+df_c33=subset(df_c33, select= c(no, yes))
+chi33<- chisq.test(df_c33)
+
+p33 <- ggplot(df_long33, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Bowel wall thickening") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi33$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p33
+
+ggsave(filename = paste0(dir, "/Colon_Age.png"), dpi=600, height = 3, width = 3)
+
+#Abdominal lymphadenopathy
+data$lymph <- factor(data$pimg_abdo_lymph_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$lymph[is.na(data$lymph)] <- "unknown"
+df34<- as.data.frame(table(data$lymph, data$Age.group))
+df34 <- tidyr::spread(df34, Var1, Freq)
+colnames(df34) <- c("factor", "no", "yes", "unknown")
+df34$no_percentage <- (df34$no / (df34$no + df34$yes + df34$unknown)) * 100
+df34$yes_percentage <- (df34$yes / (df34$no + df34$yes + df34$unknown)) * 100
+df_long34 <- gather(df34, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long34$factor <- factor(df_long34$factor, levels = level)
+
+df_c34=subset(df34, select= c(factor, no, yes))
+rownames(df_c34) <- df_c34[,1]
+df_c34=subset(df_c34, select= c(no, yes))
+chi34<- chisq.test(df_c34)
+
+p34 <- ggplot(df_long34, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Abdominal lymphadenopathy") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi34$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p34
+
+ggsave(filename = paste0(dir, "/Abdominal lymphadenopathy_Age.png"), dpi=600, height = 3, width = 3)
+
+#Splenomegaly
+data$splenomeg <- factor(data$pimg_abdo_splen_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$splenomeg[is.na(data$splenomeg)] <- "unknown"
+df27<- as.data.frame(table(data$splenomeg, data$Age.group))
+df27 <- tidyr::spread(df27, Var1, Freq)
+colnames(df27) <- c("factor", "no", "yes", "unknown")
+df27$no_percentage <- (df27$no / (df27$no + df27$yes + df27$unknown)) * 100
+df27$yes_percentage <- (df27$yes / (df27$no + df27$yes + df27$unknown)) * 100
+df_long27 <- gather(df27, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long27$factor <- factor(df_long27$factor, levels = level)
+
+df_c27=subset(df27, select= c(factor, no, yes))
+rownames(df_c27) <- df_c27[,1]
+df_c27=subset(df_c27, select= c(no, yes))
+chi27<- chisq.test(df_c27)
+
+p27 <- ggplot(df_long27, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Splenomegaly") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi27$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p27
+
+ggsave(filename = paste0(dir, "/Splenomegaly_Age.png"), dpi=600, height = 3, width = 3)
+```
+
+
+#Figure 5
+```{r}
+data$ICU <- factor(data$p1_thr_pims_list___1, levels = c(0, 1), labels = c("no", "yes"))
+t4 <- table(data$ICU, data$Age.group)
+df4<- as.data.frame(t4)
+df4 <- tidyr::spread(df4, Var1, Freq)
+colnames(df4) <- c("factor", "no", "yes")
+df4$no_percentage <- (df4$no / (df4$no + df4$yes)) * 100
+df4$yes_percentage <- (df4$yes / (df4$no + df4$yes)) * 100
+df_long4 <- gather(df4, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long4$factor <- factor(df_long4$factor, levels = c("<1", "1-5", "6-11", ">11"))
+
+df_c4=subset(df4, select= c(factor, no, yes))
+rownames(df_c4) <- df_c4[,1]
+df_c4=subset(df_c4, select= c(no, yes))
+chi4<- chisq.test(df_c4)
+
+p4 <- ggplot(df_long4, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("ICU") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi4$p.value, 3)),hjust=1, vjust=1, size = 3)
+p4
+
+ggsave(filename = paste0(dir, "/ICU_age.png"), dpi=600, height = 3, width = 3)
+```
+
+
+```{r}
+#inpatientdays
+res.aov <- aov(pther_inpatient_days ~ Age.group, data = data)
+summary(res.aov)
+pv_1<- TukeyHSD(res.aov)
+pv_1 <- as.data.frame(pv_1$Age.group)
+pv_1$diff <- round(pv_1$diff, 1)
+pv_1 <- pv_1[, c("diff", "p adj")]
+rownames(pv_1) <- c("1-5 - <1", "6-11 - <1",  ">11 - <1", "6-11 - 1-5", ">11 - 1-5",  ">11 - 6-11")
+
+inpat <- ggplot(data, aes(x=Age.group, y=pther_inpatient_days))+
+  geom_boxplot(aes(x = factor(Age.group, level = level)), color=colors2)+
+  labs(x = "Age group", y = "Days")+
+  theme_minimal() + 
+  ggtitle("Days of hospitalization")
+
+inpat.tab <- tableGrob(round(pv_1, 3))
+inpat.plot<- inpat+inpat.tab +plot_layout(ncol = 2)
+inpat.plot
+ggsave(filename = paste0(dir, "/Inpatient days_age.png"), dpi=600, height = 3, width = 4)
+
+#organ systems
+data$clin_score <- rowSums(data[, c("p1_sy_sympt_type___1", "p1_sy_sympt_type___2", "p1_sy_sympt_type___3", "p1_sy_sympt_type___4", "p1_sy_sympt_type___5", "p1_sy_sympt_type___6", "p1_sy_sympt_type___7", "p1_sy_sympt_type___8", "p1_sy_sympt_type___9", "p1_sy_sympt_type___10", "p1_sy_sympt_type___11", "p1_sy_sympt_type___12", "p1_sy_sympt_type___13", "p1_sy_sympt_type___14")])
+
+res.aov <- aov(clin_score ~ Age.group, data = data)
+summary(res.aov)
+pv_1<- TukeyHSD(res.aov)
+pv_1 <- as.data.frame(pv_1$Age.group)
+pv_1$diff <- round(pv_1$diff, 1)
+pv_1 <- pv_1[, c("diff", "p adj")]
+rownames(pv_1) <- c("1-5 - <1", "6-11 - <1",  ">11 - <1", "6-11 - 1-5", ">11 - 1-5",  ">11 - 6-11")
+
+c_s <- ggplot(data, aes(x=Age.group, y=clin_score))+
+  geom_boxplot(aes(x = factor(Age.group, level = level)), color=colors2)+
+  labs(x = "Age group", y = "N° of organ systems")+
+  theme_minimal() + 
+  ggtitle("N° of affected organ systems")
+c_s.tab <- tableGrob(round(pv_1, 4))
+c_s.plot<- c_s+c_s.tab +plot_layout(ncol = 2)
+c_s.plot
+ggsave(filename = paste0(dir, "/organ systems_Age.png"), dpi=600, height = 3, width = 4)
+
+#Aneurysm
+data$aneurysma <- factor(data$pimg_echo_coroneury_yesno, levels = c(0, 1, -99), labels = c("no", "yes", "unknown"))
+data$aneurysma[is.na(data$aneurysma)] <- "unknown"
+df25<- as.data.frame(table(data$aneurysma, data$Age.group))
+df25 <- tidyr::spread(df25, Var1, Freq)
+colnames(df25) <- c("factor", "no", "yes", "unknown")
+df25$no_percentage <- (df25$no / (df25$no + df25$yes + df25$unknown)) * 100
+df25$yes_percentage <- (df25$yes / (df25$no + df25$yes + df25$unknown)) * 100
+df_long25 <- gather(df25, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long25$factor <- factor(df_long25$factor, levels = level)
+
+df_c25=subset(df25, select= c(factor, no, yes))
+rownames(df_c25) <- df_c25[,1]
+df_c25=subset(df_c25, select= c(no, yes))
+chi25<- chisq.test(df_c25)
+
+p25 <- ggplot(df_long25, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Coronary aneurysm") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi25$p.value, 3)),hjust=1, vjust=1, size = 3)+
+  ylim(0,100)
+
+p25
+
+ggsave(filename = paste0(dir, "/aneurysm_age.png"), dpi=600, height = 3, width = 3)
+
+#outcome
+colors.out <- c("#c82c01","#92ffc4", "#6897bb") 
+level.out <- c("Irrev_percentage", "Rev_percentage", "Rest_percentage")
+
+data$outcome <- factor(data$p1_outcome_list, levels = c(1,2, 3, -88), labels = c("Restitutio", "Reversible", "Irreversible", "Unknown"))
+out <- as.data.frame(table(data$outcome, data$Age.group))
+out <- tidyr::spread(out, Var1, Freq)
+out$Rest_percentage <- (out$Restitutio / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Rev_percentage <- (out$Reversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out$Irrev_percentage <- (out$Irreversible  / (out$Restitutio + out$Reversible + out$Irreversible + out$Unknown)) * 100
+
+out_long <- gather(out, key = "Response", value = "percentage", Rest_percentage, Rev_percentage, Irrev_percentage)
+out_long$Var2 <- factor(out_long$Var2, levels = c("<1", "1-5", "6-11", ">11"))
+
+out_long$Response <- factor(out_long$Response, levels = level.out)
+
+data$Irrev <- data$outcome == 'Irreversible'
+c.out <- table(data$Age.group, data$Irrev)
+chi_out <- chisq.test(c.out)
+chi_out
+
+data$Rev <- data$outcome == 'Reversible'
+c.rev.out <- table(data$Age.group, data$Rev)
+chi_rev_out <- chisq.test(c.rev.out)
+chi_rev_out
+
+out.plot<- ggplot(out_long, aes(x = Var2, y=percentage, fill = Response)) +
+  geom_bar(position = "stack", stat="identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors.out, labels = c("Irreversible", "Reversible", "Restitutio")) +
+  scale_y_continuous(name="Percentage", breaks=c(0, 25, 50, 75, 100), limits=c(0,110))+
+  xlab("Age group") + 
+  ggtitle("Outcome") + 
+  annotate("text", x = Inf, y = Inf, label = paste("Irreversible: p=", round(chi_out$p.value, 3)), hjust=1, vjust=1, size = 3)+ 
+  annotate("text", x = Inf, y = Inf, label = paste("Reversible: p=", round(chi_rev_out$p.value, 3)), hjust=1, vjust=3, size = 3)
+out.plot
+
+ggsave(filename = paste0(dir, "/outcome_Age.png"), dpi=600, height = 3, width = 3)
+```
+
+
+```{r}
+#calculations
+
+p <- t(prop.table(table(data$Age.group, data$ICU)))
+
+data1 <- subset(data, Age.group=="<1")
+data2 <- subset(data, Age.group=="1-5")
+data3 <- subset(data, Age.group=="6-11")
+data4 <- subset(data, Age.group==">11")
+
+prop.table(table(data1$ICU))
+prop.table(table(data2$ICU))
+prop.table(table(data3$ICU))
+prop.table(table(data4$ICU))
+```
+
+
+
+
+```{r}
+
+#additional analyses
+dir <- "Results/Additions"
+colors <- c("no_percentage" = "#606060FF", "yes_percentage" = "#D6ED17FF")
+level=c("<1", "1-5", "6-11", ">11")
+
+
+
+#Pseudokrupp=Husten
+data$cough <- factor(data$pcomp_resp_type___11, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$cough, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("Cough") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/Cough_age.png"), dpi=600, height = 3, width = 3)
+
+#pARDS
+data$pARDS <- factor(data$pdiag_on_discharge_list___4, levels = c(0, 1, -88), labels = c("no", "yes", "unknown"))
+df1<- as.data.frame(table(data$pARDS, data$Age.group))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes", "unknown")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes + df1$unknown)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes + df1$unknown)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Age group") + 
+  ggtitle("pARDS") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = "black")+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/pARDS_age.png"), dpi=600, height = 3, width = 3)
+
+
+```
+
