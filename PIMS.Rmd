@@ -1,0 +1,1513 @@
+---
+title: "PIMS"
+output: html_document
+date: "2023-09-18"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+library(ggplot2)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(ltm)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+library(patchwork)
+library(readxl)
+library(knitr)
+library(ggpmisc)
+library(ggpubr)
+library(jtools)
+library(gt)
+library(ggpointdensity)
+library(viridis)
+```
+
+#write table
+```{r}
+data <- read_csv("Rohdaten_P1PIMSABCComplete_DATA_2023-09-17_1849.csv")
+#add wave information
+data$wave <- cut(as.Date(data$ppatient_admission_date), breaks = c(as.Date("2020-01-01"), as.Date("2021-03-28"), as.Date("2021-07-18"), as.Date("2022-01-23"), as.Date("2023-09-18")), labels = c("W", "A", "D", "O"), include.lowest = TRUE)
+write.csv(data, file = "Results/data_wave.csv", row.names = FALSE )
+```
+
+#setup
+```{r}
+#setup
+dir <- "Results"
+
+data <- read_csv("Results/data_wave.csv")
+data <- data[!is.na(data$wave), ,drop=F]
+
+colors <- c("no_percentage" = "dark red", "yes_percentage" = "cornflowerblue")
+colors.age <- c("no_percentage" = "#606060FF", "yes_percentage" = "#D6ED17FF")
+colors2<- c("#FF5926", "#172957", "#16C9EF", "#CD9A62")
+colors2.age <- c("#FFC0CB", "#85d6c2", "#106a8c", "#263a55")
+
+level <- c("W", "A", "D", "O")
+level.age <- c("<1", "1-5", "6-11", ">11")
+
+data$Age.group <- cut(data$ppatient_age_years, breaks = c("-Inf", "0", "5", "11", "Inf"), labels = c("<1", "1-5", "6-11", ">11"), include.lowest = T)
+
+data$Age.months <- data$ppatient_age_months
+data$Age.months[is.na(data$Age.months)]<- "0"
+data$Age.years <- data$ppatient_age_years
+data$Age.months <- as.numeric(data$Age.months)
+data$Age.years <- as.numeric(data$Age.years)
+data$Age.dec <- data$Age.years + data$Age.months/12
+
+data$gender  <- factor(data$ppatient_gender, levels = c(1, 2), labels = c("male", "female"))
+
+data$duration.days <- as.numeric(data$ppatient_admission_date - min(data$ppatient_admission_date))
+data$duration <- as.numeric(data$duration.days/7)
+
+symptoms <- c("p1_sy_sympt_type___14", 
+              "p1_sy_sympt_type___3", 
+              "p1_sy_sympt_type___2", 
+              "p1_sy_sympt_type___6", 
+              "p1_sy_sympt_type___5", 
+              "p1_sy_sympt_type___9", 
+              "p1_sy_sympt_type___7", 
+              "p1_sy_sympt_type___8", 
+              "p1_sy_sympt_type___10", 
+              "p1_sy_sympt_type___4", 
+              "p1_sy_sympt_type___12", 
+              "p1_sy_sympt_type___1", 
+              "p1_sy_sympt_type___13", 
+              "p1_sy_sympt_type___11")
+
+data$clin_score <- rowSums(data[, symptoms])
+
+symptoms.label <- c("Fever",
+                    "Cardiocirculatory",
+                    "Respiratory",
+                    "Renal",
+                    "Hepatic",
+                    "Psychiatric",
+                    "Neurological/Neuromuscular",
+                    "Musculoskelettal", 
+                    "Hematological",
+                    "Gastrointestinal", 
+                    "Dermatological",  
+                    "ENT", 
+                    "Mucosal",
+                    "Autoimmunological")  
+
+data$Effusion <- as.integer(rowSums(data[, c("pimg_thor_pleur_yesno", "pimg_echo_pericard_yesno", "pimg_abdo_aszit_yesno")] == 1) > 0)
+
+data$Effusion <- factor(data$Effusion, levels = c(0, 1), labels = c("no", "yes"))
+data$IVIGs <- factor(data$pther_immun_mod_type___13, levels = c(0, 1), labels = c("no", "yes"))
+data$Steroids <- factor(data$pther_immun_mod_type___2, levels = c(0, 1), labels = c("no", "yes"))
+data$Therapy <- ifelse(data$Steroids == "yes" & data$IVIGs == "yes", "yes", "no")
+data$Comorbidities <- factor(data$pcomorb_pims_chk, levels = c(0, 1), labels = c("no", "yes"))
+
+wave.label <- c("Wildtype", "Alpha", "Delta", "Omicron")
+age.label <- c("<1 year", "1-5 years", "6-11 years", ">11 years")
+
+with_unknown <- c('pimg_thor_pleur_yesno', 'pimg_echo_pericard_yesno', 'pimg_echo_myocard_yesno', 'pimg_abdo_lymph_yesno', 'pimg_echo_coroneury_yesno')
+data[with_unknown] <- lapply(data[with_unknown], function(x) ifelse(x == -99, NA, x))
+
+data$Respiratory <- factor(data$p1_sy_sympt_type___2, levels = c(0, 1), labels = c("no", "yes"))
+data$Cardiocirculatory <- factor(data$p1_sy_sympt_type___3, levels = c(0, 1), labels = c("no", "yes"))
+data$'Kidney failure' <- factor(data$pcomp_kidney_type___1, levels = c(0, 1), labels = c("no", "yes"))
+data$'Liver dysfunction' <- factor(data$pcomp_liver_type___1, levels = c(0, 1), labels = c("no", "yes"))
+data$ICU <- factor(data$p1_thr_pims_list___1, levels = c(0, 1), labels = c("no", "yes"))
+data$'Pleural effusion' <- factor(data$pimg_thor_pleur_yesno, levels = c(0, 1), labels = c("no", "yes"))
+data$'Pericardial effusion' <- factor(data$pimg_echo_pericard_yesno, levels = c(0, 1), labels = c("no", "yes"))
+data$'Myocardial dysfunction' <- factor(data$pimg_echo_myocard_yesno, levels = c(0, 1), labels = c("no", "yes"))
+data$'Abdominal lymphadenopathy' <- factor(data$pimg_abdo_lymph_yesno, levels = c(0, 1), labels = c("no", "yes"))
+data$'Coronary Aneurysm' <- factor(data$pimg_echo_coroneury_yesno, levels = c(0, 1), labels = c("no", "yes"))
+data$pARDS <- factor(data$pdiag_on_discharge_list___4, levels = c(0, 1), labels = c("no", "yes"))
+data$'Heart insufficiency' <- factor(data$pcomp_cardiac_type___4, levels = c(0, 1), labels = c("no", "yes"))
+data$'Arterial Hypotonia' <- factor(data$pcomp_cardiac_type___20, levels = c(0, 1), labels = c("no", "yes"))
+
+data$'Fatigue' <- factor(data$pcomp_other_type___14, levels = c(0, 1), labels = c("no", "yes"))
+
+data$ppatient_admission_date <- as.Date(data$ppatient_admission_date)
+data$'Organ system involvement' <- data$clin_score
+data$'Days of hospitalization' <- data$pther_inpatient_days
+data$'CRP' <- data$plab_crp_si_value
+data$'NT proBNP' <- data$plab_probnp_si_value
+data$'Lymphocytes' <- data$plab_lymphocyte_si_value
+```
+
+#linear models
+```{r}
+
+rownames.model <- c("Time in weeks", "Gender (ref=male)", "Age in years", "Comorbidities (ref=no)", "IVIGs + Steroids (ref=no)")
+
+#model1, clin_score, linear
+model1<- lm(clin_score ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data)
+model1_df<- as.data.frame(coef(summary(model1)))
+model1_df <- model1_df[, -c(2,3)]
+colnames(model1_df) <- c("Coefficient", "p-value")
+rownames(model1_df) <- c("Intercept", rownames.model)
+model1_df<- model1_df[-1, ]
+model1_df$`p-value` <- ifelse(model1_df$`p-value` < 0.001, "<0.001", round(model1_df$`p-value`, 3))
+model1_df$Coefficient  <- round(model1_df$Coefficient , 3)
+
+conf_intervals <- as.data.frame(confint(model1, level = 0.95))
+conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
+conf_intervals <- conf_intervals[-1,-c(1,2), drop = F]
+rownames(conf_intervals) <- rownames.model
+
+model1_df$RowID <- rownames(model1_df)
+conf_intervals$RowID <- rownames(conf_intervals)
+model1_compl <- merge(model1_df, conf_intervals, by = "RowID")
+model1_compl <- model1_compl[c(5,1,3,2,4), ]
+model1_compl<- model1_compl[c("RowID", "Coefficient", "95% CI", "p-value")]
+names(model1_compl)[names(model1_compl) == "RowID"] <- "Variable"
+
+clin_score_lm <- gt(model1_compl, rownames_to_stub = F) %>%
+  tab_header(title = "N° of organ systems involved") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")
+
+
+#model2, CRP, linear
+model2<- lm(CRP ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data)
+summary(model2)
+model2_df<- as.data.frame(coef(summary(model2)))
+model2_df <- model2_df[, -c(2,3)]
+colnames(model2_df) <- c("Coefficient", "p-value")
+rownames(model2_df) <- c("Intercept", rownames.model)
+model2_df<- model2_df[-1, ]
+model2_df$`p-value` <- ifelse(model2_df$`p-value` < 0.001, "<0.001", round(model2_df$`p-value`, 3))
+model2_df$Coefficient  <- round(model2_df$Coefficient , 3)
+
+conf_intervals <- as.data.frame(confint(model2, level = 0.95))
+conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
+conf_intervals <- conf_intervals[-1,-c(1,2), drop = F]
+rownames(conf_intervals) <- rownames.model
+
+model2_df$RowID <- rownames(model2_df)
+conf_intervals$RowID <- rownames(conf_intervals)
+model2_compl <- merge(model2_df, conf_intervals, by = "RowID")
+model2_compl <- model2_compl[c(5,1,3,2,4), ]
+model2_compl<- model2_compl[c("RowID", "Coefficient", "95% CI", "p-value")]
+names(model2_compl)[names(model2_compl) == "RowID"] <- "Variable"
+
+CRP_glm <- gt(model2_compl, rownames_to_stub = F) %>%
+  tab_header(title = "CRP values") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")
+
+
+#model3, Myocardial dysfunction, binomial
+data$Myoc <- data$'Myocardial dysfunction'
+model3 <- glm(Myoc ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
+model3_df<- as.data.frame(coef(summary(model3)))
+model3_df$Estimate <- exp(model3_df$Estimate)
+model3_df <- model3_df[, -c(2,3)]
+colnames(model3_df) <- c("Odds ratio", "p-value")
+rownames(model3_df) <- c("Intercept", rownames.model)
+model3_df<- model3_df[-1, ]
+model3_df$`p-value` <- ifelse(model3_df$`p-value` < 0.001, "<0.001", round(model3_df$`p-value`, 3))
+model3_df$'Odds ratio'  <- round(model3_df$'Odds ratio' , 3)
+
+conf_intervals <- as.data.frame(confint(model3, level = 0.95))
+conf_intervals <- exp(conf_intervals)
+conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
+conf_intervals <- conf_intervals[-1,-c(1,2), drop = F]
+rownames(conf_intervals) <- rownames.model
+
+model3_df$RowID <- rownames(model3_df)
+conf_intervals$RowID <- rownames(conf_intervals)
+model3_compl <- merge(model3_df, conf_intervals, by = "RowID")
+model3_compl <- model3_compl[c(5,1,3,2,4), ]
+model3_compl<- model3_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
+names(model3_compl)[names(model3_compl) == "RowID"] <- "Variable"
+
+Myoc_glm <- gt(model3_compl, rownames_to_stub = F) %>%
+  tab_header(title = "Myocardial dysfunction") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")
+
+#model4, ICU, binomial
+model4 <- glm(ICU ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
+model4_df<- as.data.frame(coef(summary(model4)))
+model4_df$Estimate <- exp(model4_df$Estimate)
+model4_df <- model4_df[, -c(2,3)]
+colnames(model4_df) <- c("Odds ratio", "p-value")
+rownames(model4_df) <- c("Intercept", rownames.model)
+model4_df<- model4_df[-1, ]
+model4_df$`p-value` <- ifelse(model4_df$`p-value` < 0.001, "<0.001", round(model4_df$`p-value`, 3))
+model4_df$'Odds ratio'  <- round(model4_df$'Odds ratio' , 3)
+
+conf_intervals <- as.data.frame(confint(model4, level = 0.95))
+conf_intervals <- exp(conf_intervals)
+conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
+conf_intervals <- conf_intervals[-1,-c(1,2), drop = F]
+rownames(conf_intervals) <- rownames.model
+
+model4_df$RowID <- rownames(model4_df)
+conf_intervals$RowID <- rownames(conf_intervals)
+model4_compl <- merge(model4_df, conf_intervals, by = "RowID")
+model4_compl <- model4_compl[c(5,1,3,2,4), ]
+model4_compl<- model4_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
+names(model4_compl)[names(model4_compl) == "RowID"] <- "Variable"
+
+ICU_glm <- gt(model4_compl, rownames_to_stub = F) %>%
+  tab_header(title = "ICU admission") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")
+
+
+#model5, Coronary Aneurysm, binomial
+model5 <- glm(data$'Coronary Aneurysm' ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
+model5_df<- as.data.frame(coef(summary(model5)))
+model5_df$Estimate <- exp(model5_df$Estimate)
+model5_df <- model5_df[, -c(2,3)]
+colnames(model5_df) <- c("Odds ratio", "p-value")
+rownames(model5_df) <- c("Intercept", rownames.model)
+model5_df<- model5_df[-1, ]
+model5_df$`p-value` <- ifelse(model5_df$`p-value` < 0.001, "<0.001", round(model5_df$`p-value`, 3))
+model5_df$'Odds ratio'  <- round(model5_df$'Odds ratio' , 3)
+
+conf_intervals <- as.data.frame(confint(model5, level = 0.95))
+conf_intervals <- exp(conf_intervals)
+conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
+conf_intervals <- conf_intervals[-1,-c(1,2), drop = F]
+rownames(conf_intervals) <- rownames.model
+
+model5_df$RowID <- rownames(model5_df)
+conf_intervals$RowID <- rownames(conf_intervals)
+model5_compl <- merge(model5_df, conf_intervals, by = "RowID")
+model5_compl <- model5_compl[c(5,1,3,2,4), ]
+model5_compl<- model5_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
+names(model5_compl)[names(model5_compl) == "RowID"] <- "Variable"
+
+Aneurysm_glm <- gt(model5_compl, rownames_to_stub = F) %>%
+  tab_header(title = "Coronary aneurysm") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")
+
+
+
+Sys.setenv(CHROMOTE_CHROME = "C:/Users/lohrmanf/AppData/Local/Google/Chrome/Application/chrome.exe")
+gtsave(clin_score_lm, filename = "Results/clin_score_lm.png")
+gtsave(CRP_glm, filename = "Results/CRP_glm.png")
+gtsave(Myoc_glm, filename = "Results/Myoc_glm.png")
+gtsave(ICU_glm, filename = "Results/ICU_glm.png")
+gtsave(Aneurysm_glm, filename = "Results/Aneurysm_glm.png")
+
+```
+
+
+```{r}
+result <- kruskal.test(plab_gpt_si_value ~ wave, data = data)
+
+# Display the result
+print(result)
+
+
+```
+
+
+
+#table functions
+```{r}
+wave_function <- function(var_name, data) {
+  var <- sym(var_name)
+  c_var <- data %>%
+    group_by(wave) %>%
+    summarise(Total = sum(!is.na(!!var)), symp = sum(!!var == 1, na.rm = TRUE)) %>%
+    mutate(symp_Percentage = round((symp / Total) * 100, 1)) %>%
+    mutate(symp_Percentage_Label = paste(symp, "/", Total, " (", symp_Percentage, "%)", sep = "")) %>%
+    dplyr::select(wave, symp_Percentage_Label) %>%
+    pivot_wider(names_from = wave, values_from = symp_Percentage_Label) %>%
+    as.data.frame()
+  
+  table_data <- table(data$wave, data[[var_name]])
+  
+  if (all(data[[var_name]] == 1, na.rm = TRUE) || all(data[[var_name]] == 0, na.rm = TRUE)) {
+    p_value <- "1"
+  } else if (any(table_data <= 5)) {
+    fisher <- fisher.test(table_data, workspace = 2e6)
+    p_value <- ifelse(fisher$p.value < 0.001, "<0.001", round(fisher$p.value, 3))
+  } else {
+    chi <- chisq.test(table_data)
+    p_value <- ifelse(chi$p.value < 0.001, "<0.001", round(chi$p.value, 3))
+  }
+  
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+
+wave_function_cont_log <- function(var_name, data) {
+  c_var <- data %>%
+    group_by(wave) %>%
+    summarise(
+      Median = round(median(.data[[var_name]], na.rm = TRUE), 1),
+      `25P` = round(quantile(.data[[var_name]], probs = 0.25, na.rm = TRUE), 1),
+      `75P` = round(quantile(.data[[var_name]], probs = 0.75, na.rm = TRUE), 1),
+      Count = sum(!is.na(.data[[var_name]]))
+    ) %>%
+    mutate(Range = paste(Median, " (", `25P`, "-", `75P`, "), n=", Count, sep = "")) %>%
+    dplyr::select(wave, Range) %>%
+    pivot_wider(names_from = wave, values_from = Range) %>%
+    as.data.frame()
+  data_filtered <- data %>% 
+    filter(!is.na(.data[[var_name]])) %>%
+    mutate(log_var = log(.data[[var_name]]))
+  anova_res <- aov(reformulate("wave", response = var_name), data = data_filtered)
+  anova_sum <- summary(anova_res)
+  p_value <- ifelse(anova_sum[[1]]["wave", "Pr(>F)"] < 0.001, "<0.001", round(anova_sum[[1]]["wave", "Pr(>F)"], 3))
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+
+wave_function_cont_nlog <- function(var_name, data) {
+  c_var <- data %>%
+    group_by(wave) %>%
+    summarise(
+      Median = round(median(.data[[var_name]], na.rm = TRUE), 1),
+      `25P` = round(quantile(.data[[var_name]], probs = 0.25, na.rm = TRUE), 1),
+      `75P` = round(quantile(.data[[var_name]], probs = 0.75, na.rm = TRUE), 1),
+      Count = sum(!is.na(.data[[var_name]]))
+    ) %>%
+    mutate(Range = paste(Median, " (", `25P`, "-", `75P`, "), n=", Count, sep = "")) %>%
+    dplyr::select(wave, Range) %>%
+    pivot_wider(names_from = wave, values_from = Range) %>%
+    as.data.frame()
+  data_filtered <- data %>% 
+    filter(!is.na(.data[[var_name]]))
+  anova_res <- aov(reformulate("wave", response = var_name), data = data_filtered)
+  anova_sum <- summary(anova_res)
+  p_value <- ifelse(anova_sum[[1]]["wave", "Pr(>F)"] < 0.001, "<0.001", round(anova_sum[[1]]["wave", "Pr(>F)"], 3))
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+
+
+#age
+age_function <- function(var_name, data) {
+  var <- sym(var_name)
+  c_var <- data %>%
+    group_by(Age.group) %>%
+    summarise(Total = sum(!is.na(!!var)), symp = sum(!!var == 1, na.rm = TRUE)) %>%
+    mutate(symp_Percentage = round((symp / Total) * 100, 1)) %>%
+    mutate(symp_Percentage_Label = paste(symp, "/", Total, " (", symp_Percentage, "%)", sep = "")) %>%
+    dplyr::select(Age.group, symp_Percentage_Label) %>%
+    pivot_wider(names_from = Age.group, values_from = symp_Percentage_Label) %>%
+    as.data.frame()
+  
+  table_data <- table(data$Age.group, data[[var_name]])
+  
+  if (all(data[[var_name]] == 1, na.rm = TRUE) || all(data[[var_name]] == 0, na.rm = TRUE)) {
+    p_value <- "1"
+  } else if (any(table_data <= 5)) {
+    fisher <- fisher.test(table_data, workspace = 2e6)
+    p_value <- ifelse(fisher$p.value < 0.001, "<0.001", round(fisher$p.value, 3))
+  } else {
+    chi <- chisq.test(table_data)
+    p_value <- ifelse(chi$p.value < 0.001, "<0.001", round(chi$p.value, 3))
+  }
+  
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+
+
+age_function_cont_log <- function(var_name, data) {
+  c_var <- data %>%
+    group_by(Age.group) %>%
+    summarise(
+      Median = round(median(.data[[var_name]], na.rm = TRUE), 1),
+      `25P` = round(quantile(.data[[var_name]], probs = 0.25, na.rm = TRUE), 1),
+      `75P` = round(quantile(.data[[var_name]], probs = 0.75, na.rm = TRUE), 1),
+      Count = sum(!is.na(.data[[var_name]]))
+    ) %>%
+    mutate(Range = paste(Median, " (", `25P`, "-", `75P`, "), n=", Count, sep = "")) %>%
+    dplyr::select(Age.group, Range) %>%
+    pivot_wider(names_from = Age.group, values_from = Range) %>%
+    as.data.frame()
+  data_filtered <- data %>% 
+    filter(!is.na(.data[[var_name]])) %>%
+    mutate(log_var = log(.data[[var_name]]))
+  anova_res <- aov(reformulate("Age.group", response = var_name), data = data_filtered)
+  anova_sum <- summary(anova_res)
+  p_value <- ifelse(anova_sum[[1]]["Age.group", "Pr(>F)"] < 0.001, "<0.001", round(anova_sum[[1]]["Age.group", "Pr(>F)"], 3))
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+
+age_function_cont_nlog <- function(var_name, data) {
+  c_var <- data %>%
+    group_by(Age.group) %>%
+    summarise(
+      Median = round(median(.data[[var_name]], na.rm = TRUE), 1),
+      `25P` = round(quantile(.data[[var_name]], probs = 0.25, na.rm = TRUE), 1),
+      `75P` = round(quantile(.data[[var_name]], probs = 0.75, na.rm = TRUE), 1),
+      Count = sum(!is.na(.data[[var_name]]))
+    ) %>%
+    mutate(Range = paste(Median, " (", `25P`, "-", `75P`, "), n=", Count, sep = "")) %>%
+    dplyr::select(Age.group, Range) %>%
+    pivot_wider(names_from = Age.group, values_from = Range) %>%
+    as.data.frame()
+  data_filtered <- data %>% 
+    filter(!is.na(.data[[var_name]]))
+  anova_res <- aov(reformulate("Age.group", response = var_name), data = data_filtered)
+  anova_sum <- summary(anova_res)
+  p_value <- ifelse(anova_sum[[1]]["Age.group", "Pr(>F)"] < 0.001, "<0.001", round(anova_sum[[1]]["Age.group", "Pr(>F)"], 3))
+  c_var$'p-value' <- as.character(p_value)
+  return(c_var)
+}
+```
+
+#table data groups and labels
+```{r}
+#comorbidities
+comorbidities <- c("pcomorb_other_type___1", "p1_comorb_list___1", "p1_comorb_list___2", "p1_comorb_list___8", "p1_comorb_list___9", "p1_comorb_list___11", "p1_comorb_list___12")
+
+comorbidities.label <- c("Obesity", "Pulmonary comorbidity", "Cardiocirculatory comorbidity", "Hematological comorbidity", "Oncological comorbidity", "Autoimmunological comorbidity", "Inborn error of immunity")
+
+#additional diagnostics
+diagnostic <- c("p1_coinfect_list___2", 
+                "p1_coinfect_list___1", 
+                "pimg_echo_myocard_yesno",
+                "pimg_echo_pericard_yesno",
+                "pimg_echo_rightsys_yesno",
+                "pimg_thor_infil_yesno", 
+                "pimg_thor_pleur_yesno",
+                "pimg_abdo_aszit_yesno", 
+                "pimg_abdo_splen_yesno", 
+                "pimg_abdo_hepa_yesno", 
+                "pimg_abdo_colon_yesno", 
+                "pimg_abdo_lymph_yesno")
+
+data[diagnostic] <- lapply(data[diagnostic], function(x) ifelse(x == -99, NA, x))
+
+diagnostic.label <- c("Bacterial lung infection", 
+                      "Viral lung infection", 
+                      "Myocardial dysfunction",
+                      "Pericardial effusion", 
+                      "Elevated RVSP",
+                      "Lung X-ray infiltrates", 
+                      "Pleural effusion", 
+                      "Ascites", 
+                      "Splenomegaly", 
+                      "Hepatomegaly", 
+                      "Bowel wall thickening", 
+                      "Abdominal lymphadenopathy")
+
+#laboratory findings
+data$plab_bilirub_dir_si_value[data$plab_bilirub_dir_si_value < 0.01] <- 0.01
+data$plab_tropon_ti_si_value[data$plab_tropon_ti_si_value < 0.01] <- 0.01
+data$plab_ck_mb_si_value[data$plab_ck_mb_si_value <0.01] <- 0.01
+
+#lab <- c("plab_thrombocyte_si_value", "plab_neutrophil_si_value", "plab_lymphocyte_si_value",  "plab_creatinin_si_value", "plab_bilirub_dir_si_value",  "plab_gpt_si_value", "plab_albumin_si_value", "plab_lipase_si_value", "plab_creatinkin_si_value", "plab_ck_mb_si_value", "plab_probnp_si_value", "plab_tropon_ti_si_value",  "plab_fibrinog_si_value", "plab_ddimere_si_value", "plab_igg_si_value", "plab_procalciton_si_value", "plab_ferritin_si_value", "plab_crp_si_value", "plab_quick_value")
+
+#rather normal or log normal distribution?
+#s <- lapply(data[lab], shapiro.test)
+#s.log <- lapply(log(data[lab]), shapiro.test)
+#shapiro_s <- data.frame(W_value = sapply(s, function(x) x$statistic))
+#shapiro_s.log <- data.frame(W_value = sapply(s.log, function(x) x$statistic))
+
+lab.log <- c("plab_probnp_si_value", 
+             "plab_tropon_ti_si_value", 
+             "plab_ck_mb_si_value",
+             "plab_creatinkin_si_value",
+             "plab_thrombocyte_si_value", 
+             "plab_lymphocyte_si_value",
+             "plab_neutrophil_si_value", 
+             "plab_creatinin_si_value", 
+             "plab_gpt_si_value",
+             "plab_bilirub_dir_si_value",  
+             "plab_albumin_si_value", 
+             "plab_lipase_si_value", 
+             "plab_fibrinog_si_value", 
+             "plab_ddimere_si_value", 
+             "plab_igg_si_value", 
+             "plab_procalciton_si_value", 
+             "plab_ferritin_si_value")
+
+lab.nlog <- c("plab_crp_si_value", 
+              "plab_quick_value")
+
+lab.label.log<- c("NT-proBNP (pmol/l)", 
+                  "Troponin T (ng/l)", 
+                  "CK-MB (U/L)", 
+                  "Creatininkinase (U/l)", 
+                  "Thrombocytes (G/l)", 
+                  "Lymphocytes (cells/µl)",  
+                  "Neutrophils (cells/µl)", 
+                  "Creatinine (µmol/l)", 
+                  "GPT (U/L)", 
+                  "Bilirubin (µmol/l)",
+                  "Albumin (g/dl)", 
+                  "Lipase (U/L)", 
+                  "Fibrinogen (g/l)", 
+                  "D-dimers (mg/l FEU)", 
+                  "IgG (g/l)", 
+                  "Procalcitonin (ng/ml)", 
+                  "Ferritin (ng/ml)")
+
+lab.label.nlog<- c("CRP (mg/l)", 
+                   "Prothrombin time (%)")
+```
+
+
+```{r}
+hist(data$plab_tropon_ti_si_value, breaks=100)
+table()
+min(data$plab_tropon_ti_si_value, na.rm=T)
+
+selected_data <- data[lab.log]
+
+# Calculate the minimum value for each selected variable
+hist <- sapply(selected_data, min, na.rm=T)
+
+# Convert the result to a data frame for better presentation
+min_values_df <- data.frame(Variable = names(min_values), Minimum_Value = min_values)
+
+df_subset <- data[, lab.log]
+
+# Function to calculate mean ± SD and log-transformed mean ± SD
+calculate_stats <- function(data) {
+  stats <- data.frame(
+    Variable = names(data),
+    Mean_SD = sapply(data, function(x) paste0(round(mean(x, na.rm = TRUE), 2), " ± ", round(sd(x, na.rm = TRUE), 2))),
+    Log_Mean_SD = sapply(data, function(x) paste0(round(mean(log(x), na.rm = TRUE), 2), " ± ", round(sd(log(x), na.rm = TRUE), 2)))
+  )
+  return(stats)
+}
+
+stats <- calculate_stats(df_subset)
+
+# Print the results
+print(stats)
+write.csv(stats, paste0(dir, "/comp_SD_logSD.csv"), row.names=F)
+
+```
+
+
+
+# table waves
+```{r}
+#table wave
+age <- as.data.frame(data %>%
+  group_by(wave) %>%
+  summarise(Median = median(Age.dec, na.rm = TRUE), `25P` = quantile(Age.dec, probs = 0.25, na.rm = TRUE), `75P` = quantile(Age.dec, probs = 0.75, na.rm = TRUE)) %>%
+  mutate(AgeRange = paste(Median, " (", `25P`, "-", `75P`, ")", sep = "")) %>%
+  dplyr::select(wave, AgeRange) %>%
+  pivot_wider(names_from = wave, values_from = AgeRange))
+
+rownames(age) <- "Age in years"
+age <- age[, level]
+colnames(age) <- wave.label
+anova_sum <- summary(aov(Age.dec ~ wave, data = data))
+age$'p-value' <- round(anova_sum[[1]]["wave", "Pr(>F)"], 3)
+
+gender <- as.data.frame(data %>%
+  group_by(wave) %>%
+  summarise(Total = n(), Female = sum(gender == "female", na.rm=T)) %>%
+  mutate(Female_Percentage = round((Female / Total) * 100, 1)) %>%
+  mutate(Female_Percentage_Label = paste(Female, "/", Total, " (", Female_Percentage,  "%)", sep = "")) %>%
+  dplyr::select(wave, Female_Percentage_Label) %>%
+  pivot_wider(names_from = wave, values_from = Female_Percentage_Label))
+rownames(gender) <- "Gender (female)"
+gender <- gender[, level]
+colnames(gender) <- wave.label
+chi <- chisq.test(table(data$wave, data$gender))
+gender$'p-value' <- round(chi$p.value, 3)
+
+#comorbidities
+comorb <- bind_rows(lapply(comorbidities, wave_function, data = data))
+rownames(comorb)<- comorbidities.label
+comorb <- comorb[, c(level, "p-value")]
+colnames(comorb) <- c(wave.label, "p-value")
+
+#clinical symptoms
+clin.table <- bind_rows(lapply(symptoms, wave_function, data = data))
+rownames(clin.table)<- symptoms.label
+clin.table <- clin.table[, c(level, "p-value")]
+colnames(clin.table) <- c(wave.label, "p-value")
+
+#additional diagnostics
+diag.table <- bind_rows(lapply(diagnostic, wave_function, data = data))
+rownames(diag.table)<- diagnostic.label
+diag.table <- diag.table[, c(level, "p-value")]
+colnames(diag.table) <- c(wave.label, "p-value")
+
+#laboratory
+lab.table.log <- bind_rows(lapply(lab.log, wave_function_cont_log, data = data))
+lab.table.nlog <- bind_rows(lapply(lab.nlog, wave_function_cont_nlog, data = data))
+rownames(lab.table.log) <- lab.label.log
+rownames(lab.table.nlog) <- lab.label.nlog
+lab.table.log <- lab.table.log[, c(level, "p-value")]
+lab.table.nlog <- lab.table.nlog[, c(level, "p-value")]
+colnames(lab.table.log) <- c(wave.label, "p-value")
+colnames(lab.table.nlog) <- c(wave.label, "p-value")
+
+
+total <- table(data$wave)
+total <- total[level]
+total <- as.data.frame(total)
+total <- t(total)
+colnames(total) <- wave.label
+rownames(total) <- c("Var1", "Study subjects")
+total <- as.data.frame(total)
+total$'p-value' <- ""
+total <- total[-1,]
+
+table_wave_a <- rbind(total, age, gender, comorb)
+table_wave_b <- rbind(total, clin.table, lab.table.nlog, lab.table.log, diag.table)
+```
+
+# table age groups
+```{r}
+#Table age groups
+gender.age <- as.data.frame(data %>%
+  group_by(Age.group) %>%
+  summarise(Total = n(), Female = sum(gender == "female", na.rm=T)) %>%
+  mutate(Female_Percentage = round((Female / Total) * 100, 1)) %>%
+  mutate(Female_Percentage_Label = paste(Female, "/", Total, " (", Female_Percentage,  "%)", sep = "")) %>%
+  dplyr::select(Age.group, Female_Percentage_Label) %>%
+  pivot_wider(names_from = Age.group, values_from = Female_Percentage_Label))
+rownames(gender.age) <- "Gender (female)"
+colnames(gender.age) <- age.label
+chi <- chisq.test(table(data$Age.group, data$gender))
+gender.age$'p-value' <- round(chi$p.value, 3)
+
+#comorbidities
+comorb.age <- bind_rows(lapply(comorbidities, age_function, data = data))
+rownames(comorb.age)<- comorbidities.label
+colnames(comorb.age) <- c(age.label, "p-value")
+
+#clinical symptoms
+clin.table.age <- bind_rows(lapply(symptoms, age_function, data = data))
+rownames(clin.table.age)<- symptoms.label
+colnames(clin.table.age) <- c(age.label, "p-value")
+
+#additional diagnostics
+diag.table.age <- bind_rows(lapply(diagnostic, age_function, data = data))
+rownames(diag.table.age)<- diagnostic.label
+colnames(diag.table.age) <- c(age.label, "p-value")
+
+#laboratory
+lab.table.log.age <- bind_rows(lapply(lab.log, age_function_cont_log, data = data))
+lab.table.nlog.age <- bind_rows(lapply(lab.nlog, age_function_cont_nlog, data = data))
+rownames(lab.table.log.age) <- lab.label.log
+rownames(lab.table.nlog.age) <- lab.label.nlog
+lab.table.log.age <- lab.table.log.age[, c(level.age, "p-value")]
+lab.table.nlog.age <- lab.table.nlog.age[, c(level.age, "p-value")]
+colnames(lab.table.log.age) <- c(age.label, "p-value")
+colnames(lab.table.nlog.age) <- c(age.label, "p-value")
+
+total.age <- table(data$Age.group)
+total.age <- total.age[level.age]
+total.age <- as.data.frame(total.age)
+total.age <- t(total.age)
+colnames(total.age) <- age.label
+rownames(total.age) <- c("Var1", "Study subjects")
+total.age <- as.data.frame(total.age)
+total.age$'p-value' <- ""
+total.age <- total.age[-1,]
+
+table_age_a <- rbind(total.age, gender.age, comorb.age)
+
+table_age_b <- rbind(total.age, clin.table.age, lab.table.nlog.age, lab.table.log.age, diag.table.age)
+```
+
+#gt tables
+```{r}
+#make gt tables
+table_wave_a <- table_wave_a %>%
+  mutate(group = c("", rep("Demographic profile", min(9, nrow(table_wave_a) - 1))))
+  
+wave_gt_a <- gt(table_wave_a, rownames_to_stub = T, groupname_col="group") %>%
+  tab_header(title = "Table 1A - Variants of concern") %>%
+  tab_style(style = cell_text(style = "italic"),
+    locations = cells_row_groups(groups = TRUE)) %>%
+  tab_options(table.font.size = px(8),
+    table.border.top.style = "none")
+
+table_wave_b <- table_wave_b %>%
+  mutate(group = c("", rep(c(rep("Symptoms", 14), rep("Laboratory results", 19), rep("Infections", 2), rep("Imaging", 10)), length.out = nrow(table_wave_b) - 1)))
+  
+wave_gt_b <- gt(table_wave_b, rownames_to_stub = T, groupname_col="group") %>%
+  tab_header(title = "Table 2A - Variants of concern") %>%
+  tab_style(style = cell_text(style = "italic"),
+    locations = cells_row_groups(groups = TRUE)) %>%
+  tab_options(table.font.size = px(8),
+    table.border.top.style = "none")
+
+table_age_a <- table_age_a %>%
+  mutate(group = c("", rep("Demographic profile", min(8, nrow(table_wave_a) - 1))))
+  
+age_gt_a <- gt(table_age_a, rownames_to_stub = T, groupname_col="group") %>%
+  tab_header(title = "Table 1B - Age groups") %>%
+  tab_style(style = cell_text(style = "italic"),
+    locations = cells_row_groups(groups = TRUE)) %>%
+  tab_options(table.font.size = px(8),
+    table.border.top.style = "none") 
+
+table_age_b <- table_age_b %>%
+  mutate(group = c("", rep(c(rep("Symptoms", 14), rep("Laboratory results", 19), rep("Infections", 2), rep("Imaging", 10)), length.out = nrow(table_wave_b) - 1)))
+  
+age_gt_b <- gt(table_age_b, rownames_to_stub = T, groupname_col="group") %>%
+  tab_header(title = "Table 2B - Age groups") %>%
+  tab_style(style = cell_text(style = "italic"),
+    locations = cells_row_groups(groups = TRUE)) %>%
+  tab_options(table.font.size = px(8),
+    table.border.top.style = "none") 
+
+Sys.setenv(CHROMOTE_CHROME = "C:/Users/lohrmanf/AppData/Local/Google/Chrome/Application/chrome.exe")
+
+gtsave(wave_gt_a, filename = "Results/waves_table_a.pdf")
+gtsave(wave_gt_b, filename = "Results/waves_table_b.pdf")
+gtsave(age_gt_a, filename = "Results/age_groups_table_a.pdf")
+gtsave(age_gt_b, filename = "Results/age_groups_table_b.pdf")
+
+```
+
+#weekly numbers
+```{r}
+numbers <- c(286, 137, 292, 205)
+new_labels <- paste(wave.label, " (n=", numbers, ")", sep="")
+
+week.num <- read_excel("COVID-19-hospitalisiert_PIMS--Faelle_DGPI-Survey2020-2023.xlsx")
+week.num$week <- paste0(year(week.num$Datum), "-", week(week.num$Datum))
+week.num$week <- sprintf("%s-%02d", sub("-.*", "", week.num$week), as.integer(sub(".*-", "", week.num$week)))
+week.num$wave <- cut(as.Date(week.num$Datum), breaks = c(as.Date("2020-01-01"), as.Date("2021-03-28"), as.Date("2021-07-18"), as.Date("2022-01-23"), as.Date("2023-09-18")), labels = c("W", "A", "D", "O"), include.lowest = TRUE)
+
+scaling_factor <- max(week.num$PIMS, na.rm = TRUE) / max(week.num$COVID, na.rm = TRUE)
+
+p <- ggplot(week.num, aes(x = week, fill = factor(wave, levels = level))) +
+  geom_bar(aes(y = PIMS), stat = "identity", width = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8)) +
+  scale_x_discrete(breaks = function(x) x[seq(1, length(x), by = 8)]) +
+  ggtitle("Cases per week") +
+  theme(panel.background = element_rect(fill = "white", colour = "white"),
+        panel.grid.major = element_line(colour = "grey92"), 
+        plot.title = element_text(hjust = 0.5)) +
+  labs(x = "Calendar Week") +
+  scale_fill_manual(values = setNames(colors2, level), labels = new_labels, name = "Wave") +
+  scale_y_continuous("PIMS cases", expand = c(0, 0),
+                     sec.axis = sec_axis(~ . / scaling_factor, name = "Hospitalized COVID cases")) +
+  theme(axis.title.y.right = element_text(color = "#6e0511"))
+
+p <- p + geom_line(aes(y = COVID * scaling_factor), color = "#6e0511", group = 1)
+
+p
+ggsave(filename = paste0(dir, "/Weekly_numbers.png"), dpi=600, height = 3, width = 8.5)
+
+```
+
+#binomial plots
+```{r}
+#function for binomial plots
+barplot_list_p <- c('pARDS', 'Heart insufficiency', 'Kidney failure', 'Liver dysfunction', "Fatigue", 'Pleural effusion', 'Abdominal lymphadenopathy','IVIGs', 'Steroids')
+
+barplot_list <- c('Myocardial dysfunction', 'ICU', 'Coronary Aneurysm')
+
+#waves
+wave_barplot <- function(data, variable_name, colors, level, dir) {
+  df1 <- as.data.frame(table(data[[variable_name]], data$wave))
+  df1 <- tidyr::spread(df1, Var1, Freq)
+  colnames(df1) <- c("factor", "no", "yes")
+  df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+  df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+  df_long1 <- tidyr::gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+  df_long1$factor <- factor(df_long1$factor, levels = level)
+  
+  p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+    xlab("Variant of concern") +
+    ylab("Percentage") +
+    ggtitle(variable_name)+
+    scale_fill_manual(values = colors, labels = c("No", "Yes")) +
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), 
+              position = position_stack(vjust = 0.5), 
+              color = c("white", "white", "white", "white", "black", "black", "black", "black"),
+              size=3) +
+    labs(fill = NULL) +
+    theme(legend.position = "right", legend.justification = "top", legend.box.just = "top", plot.title = element_text(hjust = 0.5))
+    ggsave(filename = paste0(dir, "/", variable_name, "_wave.png"), plot = p1, dpi = 600, height = 3, width = 2.5)
+}
+
+#waves_with_p
+wave_barplot_p <- function(data, variable_name, colors, level, dir) {
+  df1 <- as.data.frame(table(data[[variable_name]], data$wave))
+  df1 <- tidyr::spread(df1, Var1, Freq)
+  colnames(df1) <- c("factor", "no", "yes")
+  df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+  df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+  df_long1 <- tidyr::gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+  df_long1$factor <- factor(df_long1$factor, levels = level)
+  df_c1=subset(df1, select= c(factor, no, yes))
+  rownames(df_c1) <- df_c1[,1]
+  df_c1=subset(df_c1, select= c(no, yes))
+  
+  fisher_needed <- any(df_c1$no <= 5) || any(df_c1$yes <= 5)
+  
+  if (fisher_needed) {
+    test_result <- fisher.test(df_c1)
+  } else {
+    test_result <- chisq.test(df_c1)
+  }
+  
+  test_p <- ifelse(test_result$p.value < 0.001, "<0.001", round(test_result$p.value, 3))
+  
+  p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+    xlab("Variant of concern") +
+    ylab("Percentage") +
+    ggtitle(variable_name)+
+    scale_fill_manual(values = colors, labels = c("No", "Yes")) +
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), 
+              position = position_stack(vjust = 0.5), 
+              color = c("white", "white", "white", "white", "black", "black", "black", "black"),
+              size=3) +
+    labs(fill = NULL) +
+    theme(legend.position = "right", legend.justification = "top", legend.box.just = "top", plot.title = element_text(hjust = 0.5))+
+    annotate("text", x = Inf, y = Inf, label = paste("p-value:", test_p),hjust=1, vjust=1, size = 3)
+  
+  ggsave(filename = paste0(dir, "/", variable_name, "_wave.png"), plot = p1, dpi = 600, height = 3, width = 2.5)
+}
+
+#Ages
+age_barplot <- function(data, variable_name, colors.age, level.age, dir) {
+  df1 <- as.data.frame(table(data[[variable_name]], data$Age.group))
+  df1 <- tidyr::spread(df1, Var1, Freq)
+  colnames(df1) <- c("factor", "no", "yes")
+  df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+  df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+  df_long1 <- tidyr::gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+  df_long1$factor <- factor(df_long1$factor, levels = level.age)
+  
+  p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+    xlab("Age group") +
+    ylab("Percentage") +
+    ggtitle(variable_name)+
+    scale_fill_manual(values = colors.age, labels = c("No", "Yes")) +
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), 
+              position = position_stack(vjust = 0.5), 
+              color = c("white", "white", "white", "white", "black", "black", "black", "black"),
+              size=3) +
+    labs(fill = NULL) +
+    theme(legend.position = "right", legend.justification = "top", legend.box.just = "top", plot.title = element_text(hjust = 0.5))
+  ggsave(filename = paste0(dir, "/", variable_name, "_age.png"), plot = p1, dpi = 600, height = 3, width = 2.5)
+}
+
+
+#Ages_with_p
+age_barplot_p <- function(data, variable_name, colors.age, level.age, dir) {
+  df1 <- as.data.frame(table(data[[variable_name]], data$Age.group))
+  df1 <- tidyr::spread(df1, Var1, Freq)
+  colnames(df1) <- c("factor", "no", "yes")
+  df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+  df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+  df_long1 <- tidyr::gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+  df_long1$factor <- factor(df_long1$factor, levels = level.age)
+  df_c1=subset(df1, select= c(factor, no, yes))
+  rownames(df_c1) <- df_c1[,1]
+  df_c1=subset(df_c1, select= c(no, yes))
+  
+  fisher_needed <- any(df_c1$no <= 5) || any(df_c1$yes <= 5)
+  
+  if (fisher_needed) {
+    test_result <- fisher.test(df_c1)
+  } else {
+    test_result <- chisq.test(df_c1)
+  }
+  
+  test_p <- ifelse(test_result$p.value < 0.001, "<0.001", round(test_result$p.value, 3))
+  
+  p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+    xlab("Age group") +
+    ylab("Percentage") +
+    ggtitle(variable_name)+
+    scale_fill_manual(values = colors.age, labels = c("No", "Yes")) +
+    geom_bar(stat = "identity") +
+    theme_minimal() +
+    geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), 
+              position = position_stack(vjust = 0.5), 
+              color = c("white", "white", "white", "white", "black", "black", "black", "black"),
+              size=3) +
+    labs(fill = NULL) +
+    theme(legend.position = "right", legend.justification = "top", legend.box.just = "top", plot.title = element_text(hjust = 0.5))+
+    annotate("text", x = Inf, y = Inf, label = paste("p-value:", test_p),hjust=1, vjust=1, size = 3)
+  ggsave(filename = paste0(dir, "/", variable_name, "_age.png"), plot = p1, dpi = 600, height = 3, width = 2.5)
+}
+
+
+for (variable_name in barplot_list) {
+  wave_barplot(data = data, variable_name = variable_name, colors = colors, level = level, dir = dir)
+}
+
+for (variable_name in barplot_list_p) {
+  wave_barplot_p(data = data, variable_name = variable_name, colors = colors, level = level, dir = dir)
+}
+
+for (variable_name in barplot_list) {
+  age_barplot(data = data, variable_name = variable_name, colors = colors.age, level = level.age, dir = dir)
+}
+
+for (variable_name in barplot_list_p) {
+  age_barplot_p(data = data, variable_name = variable_name, colors = colors.age, level = level.age, dir = dir)
+}
+```
+
+#box plots
+```{r}
+wave_boxplot <- function(data, variable, y_label) {
+  p <- ggplot(data, aes_string(x = "wave", y = paste0("`", variable, "`"))) +
+    geom_boxplot(aes(x = factor(wave, levels = level)), color = colors2) +
+    labs(x = "Variant of concern", y = y_label) +
+    theme_minimal() + 
+    ggtitle(variable) +
+    theme(plot.title = element_text(hjust = 0.5))
+  
+  ggsave(filename = paste0(dir, "/", variable, "_wave.png"), plot = p, dpi = 600, height = 3, width = 2.3)
+}
+
+age_boxplot <- function(data, variable, y_label) {
+  p <- ggplot(data, aes_string(x = "Age.group", y = paste0("`", variable, "`"))) +
+    geom_boxplot(aes(x = factor(Age.group, levels = level.age)), color = colors2.age) +
+    labs(x = "Age group", y = y_label) +
+    theme_minimal() + 
+    ggtitle(variable) +
+    theme(plot.title = element_text(hjust = 0.5))
+  ggsave(filename = paste0(dir, "/", variable, "_age.png"), plot = p, dpi = 600, height = 3, width = 2.3)
+}
+
+
+variables <- c('Organ system involvement', 'Days of hospitalization', 'CRP')
+y_labels <- c('N° of organ systems', 'Days', 'mg/l')
+
+# Wave
+for (i in seq_along(variables)) {
+  wave_boxplot(data, variables[i], y_labels[i])
+}
+
+# Age
+for (i in seq_along(variables)) {
+  age_boxplot(data, variables[i], y_labels[i])
+}
+
+```
+
+#Outcome
+```{r}
+#outcome
+colors.out <- c("#c82c01","#92ffc4", "#6897bb") 
+level.out <- c("Irrev_percentage", "Rev_percentage", "Rest_percentage")
+data$outcome <- factor(data$p1_outcome_list, levels = c(1,2, 3), labels = c("Restitutio", "Reversible", "Irreversible"))
+
+# Function to decide which test to use
+perform_test <- function(table) {
+  if(any(table <= 5)) {
+    return(fisher.test(table))
+  } else {
+    return(chisq.test(table))
+  }
+}
+
+#waves
+out <- as.data.frame(table(data$outcome, data$wave))
+out <- tidyr::spread(out, Var1, Freq)
+out$Rest_percentage <- (out$Restitutio / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out$Rev_percentage <- (out$Reversible  / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out$Irrev_percentage <- (out$Irreversible  / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out_long <- gather(out, key = "Response", value = "percentage", Rest_percentage, Rev_percentage, Irrev_percentage)
+out_long$Var2 <- factor(out_long$Var2, levels = level)
+out_long$Response <- factor(out_long$Response, levels = level.out)
+
+# Create contingency tables
+data$Irrev <- data$outcome == 'Irreversible'
+c.out <- table(data$wave, data$Irrev)
+
+data$Rev <- data$outcome == 'Reversible'
+c.rev.out <- table(data$wave, data$Rev)
+
+# Perform the appropriate tests
+chi_out <- perform_test(c.out)
+chi_rev_out <- perform_test(c.rev.out)
+
+# Extract p-values
+chi_p <- ifelse(chi_out$p.value < 0.001, "<0.001", round(chi_out$p.value, 3))
+chi_rev_p <- ifelse(chi_rev_out$p.value < 0.001, "<0.001", round(chi_rev_out$p.value, 3))
+
+# Plotting
+out.plot <- ggplot(out_long, aes(x = Var2, y = percentage, fill = Response)) +
+  geom_bar(position = "stack", stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors.out, labels = c("Irreversible", "Reversible", "Restitutio")) +
+  labs(fill = NULL) +
+  scale_y_continuous(name = "Percentage", breaks = c(0, 25, 50, 75, 100), limits = c(0, 110)) +
+  xlab("Variant of concern") + 
+  ggtitle("Outcome") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  annotate("text", x = Inf, y = Inf, label = paste("p-value (irreversible):", chi_p), hjust = 1, vjust = 1, size = 3) +   annotate("text", x = Inf, y = Inf, label = paste("p-value (reversible):", chi_rev_p), hjust = 1, vjust = 3, size = 3)
+
+
+ggsave(filename = paste0(dir, "/outcome.png"), dpi=600, height = 3, width = 4)
+
+
+#Age
+out <- as.data.frame(table(data$outcome, data$Age.group))
+out <- tidyr::spread(out, Var1, Freq)
+out$Rest_percentage <- (out$Restitutio / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out$Rev_percentage <- (out$Reversible  / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out$Irrev_percentage <- (out$Irreversible  / (out$Restitutio + out$Reversible + out$Irreversible)) * 100
+out_long <- gather(out, key = "Response", value = "percentage", Rest_percentage, Rev_percentage, Irrev_percentage)
+out_long$Var2 <- factor(out_long$Var2, levels = level.age)
+out_long$Response <- factor(out_long$Response, levels = level.out)
+
+# Create contingency tables
+data$Irrev <- data$outcome == 'Irreversible'
+c.out <- table(data$Age.group, data$Irrev)
+
+data$Rev <- data$outcome == 'Reversible'
+c.rev.out <- table(data$Age.group, data$Rev)
+
+# Perform the appropriate tests
+chi_out <- perform_test(c.out)
+chi_rev_out <- perform_test(c.rev.out)
+
+# Extract p-values
+chi_p <- ifelse(chi_out$p.value < 0.001, "<0.001", round(chi_out$p.value, 3))
+chi_rev_p <- ifelse(chi_rev_out$p.value < 0.001, "<0.001", round(chi_rev_out$p.value, 3))
+
+
+out.plot<- ggplot(out_long, aes(x = Var2, y=percentage, fill = Response)) +
+  geom_bar(position = "stack", stat="identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors.out, labels = c("Irreversible", "Reversible", "Restitutio")) +
+  labs(fill = NULL) +
+  scale_y_continuous(name="Percentage", breaks=c(0, 25, 50, 75, 100), limits=c(0,110))+
+  xlab("Age group") + 
+  ggtitle("Outcome") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  annotate("text", x = Inf, y = Inf, label = paste("p-value (irreversible):", chi_p), hjust=1, vjust=1, size = 3)+ 
+  annotate("text", x = Inf, y = Inf, label = paste("p-value (reversible):", chi_rev_p), hjust=1, vjust=3, size = 3)
+
+out.plot
+
+ggsave(filename = paste0(dir, "/outcome_age.png"), dpi=600, height = 3, width = 4)
+
+```
+
+#Scatter plots
+```{r}
+dir.sc <- "Results/scatter"
+dir.create(dir.sc)
+
+Sys.setlocale("LC_TIME", "English")
+
+theme_set(
+  theme_minimal() +
+    theme(legend.position = "top"))
+
+breaks <- as.Date(c("2021-03-28", "2021-07-18", "2022-01-23")) 
+
+variable.nlog <- c('Organ system involvement', 'Days of hospitalization', 'CRP')
+y_label.nlog <- c('N° of organ systems', 'Days', 'mg/l')
+
+
+#wave_scatter:
+wave_scatter <- function(data, variable, y_label, breaks, colors2) {
+  ymax <- max(data[[variable]], na.rm = TRUE)
+  data <- data %>%
+    mutate(ppatient_admission_date = as.Date(ppatient_admission_date, format = "%Y-%m-%d"))
+  cor_test <- cor.test(data$duration.days, data[[variable]], method = "pearson", use = "complete.obs")
+  coefficient <- round(cor_test$estimate, 3)
+  statistics_label <- paste0("r = ", coefficient)
+  p1 <- ggplot(data, aes(x = ppatient_admission_date, y = .data[[variable]])) +
+    geom_pointdensity(show.legend = TRUE, size = 3) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
+    scale_color_viridis() +
+    stat_regline_equation(label.y = (ymax * 1.1), aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
+    annotate("text", x = min(data$ppatient_admission_date), y = ymax * 1.2, label = statistics_label, hjust = 0) +
+    labs(x = "Date", y =y_label, color = "n/point") +
+    ggtitle(variable) +
+    scale_x_date(limits= c(as.Date(min(data$ppatient_admission_date)),as.Date(max(data$ppatient_admission_date))),   date_breaks = "2 months", date_labels = "%b %Y") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust=1, vjust=1, size = 8)) +
+    scale_y_continuous(limits = c(ymax * -0.1, ymax * 1.2))+
+    geom_rect(aes(xmin = as.Date(-Inf), xmax = as.Date(breaks[1]), ymin = (ymax * -0.1), ymax = 0), fill = colors2[1], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[1]), xmax = as.Date(breaks[2]), ymin = (ymax * -0.1), ymax = 0), fill = colors2[2], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[2]), xmax = as.Date(breaks[3]), ymin = (ymax * -0.1), ymax = 0), fill = colors2[3], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[3]), xmax = as.Date(Inf), ymin = (ymax * -0.1), ymax = 0), fill = colors2[4], inherit.aes = FALSE)+
+    annotate("text", x = min(data$ppatient_admission_date) + (breaks[1] - min(data$ppatient_admission_date)) / 2, y = ymax*-0.05, label = "Wildtype", size = 3)+
+    annotate("text", x = breaks[1] + (breaks[2] - breaks[1]) / 2, y = ymax*-0.05, label = "Alpha", size = 3, col = "white")+
+    annotate("text", x = breaks[2] + (breaks[3] - breaks[2]) / 2, y = ymax*-0.05, label = "Delta", size = 3)+
+    annotate("text", x = breaks[3] + (max(data$ppatient_admission_date) - breaks[3]) / 2, y = ymax*-0.05, label = "Omicron", size = 3)
+    ggsave(filename = paste0(dir.sc, "/Time_", variable, ".png"), plot = p1, dpi = 600, height = 3, width = 4.2)
+}
+
+plots <- lapply(seq_along(variable.nlog), function(i) {
+  wave_scatter(data, variable.nlog[i], y_label.nlog[i], breaks, colors2)
+})
+
+
+#age:
+age_scatter <- function(data, variable, y_label) {
+  ymax <- max(data[[variable]], na.rm = TRUE)
+  cor_test <- cor.test(data$Age.dec, data[[variable]], method = "pearson", use = "complete.obs")
+  coefficient <- round(cor_test$estimate, 3)
+  statistics_label <- paste0("r = ", coefficient)
+  p1 <- ggplot(data, aes(x = Age.dec, y = data[[variable]])) +
+    geom_pointdensity(show.legend = TRUE, size = 3) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
+    scale_color_viridis() +
+    stat_regline_equation(label.y = (ymax * 1.1), aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
+    annotate("text", x = min(data$Age.dec), y = ymax * 1.2, label = statistics_label, hjust = 0) +
+    labs(x = "Age", y = y_label, color = "n/point") +
+    ggtitle(variable) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(vjust = 0.1, size = 8)) +
+    scale_y_continuous(limits = c(ymax * -0.05, ymax * 1.2))
+
+  ggsave(filename = paste0(dir.sc, "/Age_", variable, ".png"), plot = p1, dpi = 600, height = 3, width = 4.2)
+}
+
+plots <- lapply(seq_along(variable.nlog), function(i) {
+  age_scatter(data, variable.nlog[i], y_label.nlog[i])
+})
+```
+
+
+#calculations for text
+```{r}
+data$wave <- factor(data$wave, levels=level)
+data$Age.group <- factor(data$Age.group, levels=level.age)
+
+#calculations
+dataW <- subset(data, wave=="W")
+dataA <- subset(data, wave=="A")
+dataD <- subset(data, wave=="D")
+dataO <- subset(data, wave=="O")
+data0 <- subset(data, Age.group=="<1")
+data1 <- subset(data, Age.group=="1-5")
+data6 <- subset(data, Age.group=="6-11")
+data12 <- subset(data, Age.group==">11")
+datayoung <- subset(data, Age.group %in% c("<1", "1-5"))
+dataold <- subset(data, Age.group %in% c("6-11", ">11"))
+prop.table(table(dataold$'Pleural effusion'))
+
+data$age.category <- ifelse(data$Age.group %in% c("<1", "1-5"), "young", "old")
+table(data$age.category)
+contingency_table <- table(data$age.category, data$'Pleural effusion')
+chi_square_result <- chisq.test(contingency_table)
+
+
+
+#taste loss
+prop.table(table(dataO$IVIGs))
+prop.table(table(dataO$Steroids))
+prop.table(table(data$pcomp_ent_type___3, data$wave))
+
+mean(data$plab_crp_si_value, na.rm=T)
+hist(data$plab_tropon_ti_si_value)
+
+anova_result <- aov(pther_inpatient_days ~ Age.group, data = data)
+summary(anova_result)
+
+median(dataO$pther_inpatient_days, na.rm=T)
+
+median(data12$pther_inpatient_days, na.rm=T)
+
+prop.table(table(data$ppatient_vaccines_type___100, data$wave))
+table(data$ppatient_vaccines_type___100, data$wave)
+median(dataO$ppatient_age_years, na.rm=T)
+
+prop.table(table(dataO$pcomp_cardiac_type___6))
+
+table(data$pcomp_neuro_type___3, data$Age.group)
+
+```
+
+
+```{r}
+#compare with first col:
+test<- table(data$IVIGs, data$wave)
+p_values <- c()
+test_used <- c()
+for (i in 2:ncol(test)) {
+  test_table <- test[, c(1, i)]
+  if (any(test_table < 5)) {
+    test_result <- fisher.test(test_table)
+    test_used <- c(test_used, "Fisher")
+  } else {
+    test_result <- chisq.test(test_table)
+    test_used <- c(test_used, "Chi-square")
+  }
+  p_values <- c(p_values, test_result$p.value)
+}
+
+# Apply BH correction
+p_values_corrected <- p.adjust(p_values, method = "BH")
+
+# Combine results into a data frame
+results <- data.frame(
+  Group = colnames(test)[-1],
+  `p-value` = p_values,
+  `Test Used` = test_used,
+  `Corrected p-value` = p_values_corrected
+)
+
+print(results)
+```
+
+#compare with last col
+```{r}
+test<- table(data$pcomorb_other_type___1, data$Age.group)
+p_values <- c()
+test_used <- c()
+
+# Compare the last column with every other column
+last_col <- ncol(test)
+for (i in 1:(ncol(test) - 1)) {
+  test_table <- test[, c(i, last_col)]
+  if (any(test_table < 5)) {
+    test_result <- fisher.test(test_table)
+    test_used <- c(test_used, "Fisher")
+  } else {
+    test_result <- chisq.test(test_table)
+    test_used <- c(test_used, "Chi-square")
+  }
+  p_values <- c(p_values, test_result$p.value)
+}
+
+# Apply BH correction
+p_values_corrected <- p.adjust(p_values, method = "BH")
+
+# Combine results into a data frame
+results <- data.frame(
+  Group = colnames(test)[1:(ncol(test) - 1)],
+  `p-value` = p_values,
+  `Test Used` = test_used,
+  `Corrected p-value` = p_values_corrected
+)
+
+print(results)
+
+```
+
+
+```{r}
+data$wave <- factor(data$wave, levels=level)
+
+p_values <- c()
+test_used <- "ANOVA"  
+ref_group <- "W"
+
+# Loop through each level of wave except the reference group
+for (group in setdiff(levels(data$wave), ref_group)) {
+  
+  # Subset data for the groups to compare
+  subset_data <- data[data$wave %in% c(ref_group, group), ]
+  
+  
+    aov_result <- aov(plab_probnp_si_value  ~ wave, data = subset_data)
+    test_result <- summary(aov_result)[[1]]$`Pr(>F)`[1]
+    p_values <- c(p_values, test_result)
+}
+
+# Apply BH correction
+p_values_corrected <- p.adjust(p_values, method = "BH")
+
+# Combine results into a data frame
+results <- data.frame(
+  Group = setdiff(levels(data$wave), ref_group),
+  `p-value` = p_values,
+  `Corrected p-value` = p_values_corrected,
+  `Test Used` = rep(test_used, length(p_values))
+)
+
+print(results)
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+#removed stuff - delete later
+```{r}
+ymax <- max(data$Lymphocytes, na.rm = TRUE)
+p1 <- ggplot(data, aes(x = Age.dec, y = Lymphocytes)) +
+    geom_pointdensity(show.legend = TRUE, size = 3) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
+    scale_color_viridis() +
+    stat_cor(method = "pearson", label.y = 5, na.rm = TRUE) +
+    stat_regline_equation(label.y = 4.7, aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
+    labs(x = "Age", y = "Per µl (log10)", color = "n/point") +
+    ggtitle("Lymphocytes") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(vjust = 0.5, hjust = 1, size = 8)) +
+    scale_y_log10(limits = c(50, 100000), labels = scales::label_number())
+p1
+ggsave(filename = "Results/scatter/Age_lymphocytes2.png", dpi = 600, height = 3, width = 4.2)
+
+
+
+
+
+#individual chi square testing
+data$comorbidity <- factor(data$pcomorb_pims_chk, levels = c(0, 1), labels = c("no", "yes"))
+t1 <- table(data$comorbidity, data$wave)
+df1<- as.data.frame(t1)
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = c("W", "A", "D", "O"))
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+
+df_c1 <- df_c1[level, ]
+
+combinations <- combn(rownames(df_c1), 2, simplify = FALSE)
+
+chi_function <- function(pair) { 
+  sub_df <- df_c1[pair, ] 
+  test_result <- chisq.test(sub_df) 
+  return(test_result$p.value) }
+
+p_values <- lapply(combinations, chi_function)
+comparisons <- sapply(combinations, function(x) paste(x, collapse = " vs ")) 
+adjusted_p_values <- p.adjust(unlist(p_values), method = "BH")
+
+chi_p <- data.frame(comparison = comparisons, p_value_adjusted = adjusted_p_values)
+
+colnames(chi_p) <- c("comp", "p-value")
+add.global <- data.frame(comparison="global", p_value=chi1$p.value)
+colnames(add.global) <- c("comp", "p-value")
+stats <- rbind(add.global, chi_p)
+stats$'p-value'<- round(stats$'p-value', 3)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Variant of concern") + 
+  ggtitle("Comorbidity") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = c("white", "white", "white", "white", "black", "black",  "black", "black"))+ 
+  labs(fill=NULL)+
+  theme(legend.position = "right", legend.justification = "top", legend.box.just = "top")
+p1
+stat_plot <- tableGrob(stats, rows = NULL, theme = ttheme_default(base_size = 8))
+
+layout <- c(
+  area(t = 1, l = 1, b = 8, r = 8),
+  area(t = 3.5, l = 7, b = 8, r = 13))
+
+plot<- p1 + stat_plot + 
+  plot_layout(design = layout)
+
+plot
+
+ggsave(filename = paste0(dir, "/comorbidity_plot.png"), dpi=600, height = 3.2, width = 3.6)
+
+
+#lab markers
+#CRP
+table(data$plab_crp_si_value)
+res.aov <- aov(log(plab_crp_si_value) ~ wave, data = data)
+summary(res.aov)
+pv_4<- TukeyHSD(res.aov)
+pv_4 <- as.data.frame(pv_4$wave)
+pv_4$diff <- round(pv_4$diff, 1)
+pv_4 <- pv_4[, c("diff", "p adj")]
+
+crp <- ggplot(data, aes(x=wave, y=plab_crp_si_value))+
+  geom_boxplot(aes(x = factor(wave, level = level)), color=colors3)+
+  labs(x = "Variant of concern", y = "mg/l")+
+  theme_minimal() + 
+  ggtitle("CRP")
+
+crp.tab <- tableGrob(round(pv_4, 3))
+crp.plot<- crp+crp.tab +plot_layout(ncol = 2)
+crp.plot
+
+ggsave(filename = paste0(dir, "/CRP_plot.png"), dpi=600, height = 3, width = 4)
+
+
+
+#p-value for binomials figures
+
+
+
+#comorbidity
+data$comorbidity <- factor(data$pcomorb_pims_chk, levels = c(0, 1), labels = c("no", "yes"))
+df1<- as.data.frame(table(data$comorbidity, data$wave))
+df1 <- tidyr::spread(df1, Var1, Freq)
+colnames(df1) <- c("factor", "no", "yes")
+df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
+df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
+df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
+df_long1$factor <- factor(df_long1$factor, levels = level)
+
+df_c1=subset(df1, select= c(factor, no, yes))
+rownames(df_c1) <- df_c1[,1]
+df_c1=subset(df_c1, select= c(no, yes))
+chi1<- chisq.test(df_c1)
+
+p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
+  geom_bar(stat = "identity") + 
+  theme_minimal() +  
+  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
+  ylab("Percentage") + xlab("Variant of concern") + 
+  ggtitle("Comorbidity") + 
+  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = c("white", "white", "white", "white", "black", "black",  "black", "black"))+ 
+  labs(fill=NULL)+
+  theme(legend.position = "right", legend.justification = "top", legend.box.just = "top")+
+  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
+p1
+
+ggsave(filename = paste0(dir, "/comorbidity_plot.png"), dpi=600, height = 3, width = 3)
+
+
+#log_wave
+p1 <- ggplot(data, aes(x = ppatient_admission_date, y = data$'NT proBNP')) +
+    geom_pointdensity(show.legend = TRUE, size = 3) +
+    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
+    scale_color_viridis() +
+    stat_cor(method = "pearson", label.y = 5.2, na.rm = TRUE) +
+    stat_regline_equation(label.y = 4.6, aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
+    labs(x = "Date", y = "pg/ml (log10)", color = "n/point") +
+    ggtitle("NT-proBNP") +
+    scale_x_date(limits= c(as.Date(min(data$ppatient_admission_date)),as.Date(max(data$ppatient_admission_date))),   date_breaks = "2 months", date_labels = "%b %Y") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8)) +
+    scale_y_log10(limits = c(0.01, 200000))+
+    geom_rect(aes(xmin = as.Date(-Inf), xmax = as.Date(breaks[1]), ymin = 0.01, ymax = 0.05), fill = colors2[1], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[1]), xmax = as.Date(breaks[2]), ymin = 0.01, ymax = 0.05), fill = colors2[2], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[2]), xmax = as.Date(breaks[3]), ymin = 0.01, ymax = 0.05), fill = colors2[3], inherit.aes = FALSE)+
+    geom_rect(aes(xmin = as.Date(breaks[3]), xmax = as.Date(Inf), ymin = 0.01, ymax = 0.05), fill = colors2[4], inherit.aes = FALSE)+
+    annotate("text", x = min(data$ppatient_admission_date) + (breaks[1] - min(data$ppatient_admission_date)) / 2, y = 0.025, label = "Wildtype", size = 3)+
+    annotate("text", x = breaks[1] + (breaks[2] - breaks[1]) / 2, y = 0.025, label = "Alpha", size = 3, col = "white")+
+    annotate("text", x = breaks[2] + (breaks[3] - breaks[2]) / 2, y = 0.025, label = "Delta", size = 3)+
+    annotate("text", x = breaks[3] + (max(data$ppatient_admission_date) - breaks[3]) / 2, y = 0.025, label = "Omicron", size = 3)
+
+p1
+ggsave(filename = paste0(dir.sc, "/Time_proBNP.png"), plot = p1, dpi = 600, height = 3, width = 4.2)
+
+
+
+```
+
+
