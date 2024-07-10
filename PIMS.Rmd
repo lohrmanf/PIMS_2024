@@ -136,7 +136,6 @@ data$'Lymphocytes' <- data$plab_lymphocyte_si_value
 
 #linear models
 ```{r}
-
 rownames.model <- c("Time in weeks", "Gender (ref=male)", "Age in years", "Comorbidities (ref=no)", "IVIGs + Steroids (ref=no)")
 
 #model1, clin_score, linear
@@ -148,6 +147,7 @@ rownames(model1_df) <- c("Intercept", rownames.model)
 model1_df<- model1_df[-1, ]
 model1_df$`p-value` <- ifelse(model1_df$`p-value` < 0.001, "<0.001", round(model1_df$`p-value`, 3))
 model1_df$Coefficient  <- round(model1_df$Coefficient , 3)
+model1_df$Coefficient <- as.character(model1_df$Coefficient)
 
 conf_intervals <- as.data.frame(confint(model1, level = 0.95))
 conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
@@ -161,11 +161,6 @@ model1_compl <- model1_compl[c(5,1,3,2,4), ]
 model1_compl<- model1_compl[c("RowID", "Coefficient", "95% CI", "p-value")]
 names(model1_compl)[names(model1_compl) == "RowID"] <- "Variable"
 
-clin_score_lm <- gt(model1_compl, rownames_to_stub = F) %>%
-  tab_header(title = "N° of organ systems involved") %>%
-  tab_options(table.font.size = px(10),
-    table.border.top.style = "none")
-
 
 #model2, CRP, linear
 model2<- lm(CRP ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data)
@@ -177,6 +172,7 @@ rownames(model2_df) <- c("Intercept", rownames.model)
 model2_df<- model2_df[-1, ]
 model2_df$`p-value` <- ifelse(model2_df$`p-value` < 0.001, "<0.001", round(model2_df$`p-value`, 3))
 model2_df$Coefficient  <- round(model2_df$Coefficient , 3)
+model2_df$Coefficient <- as.character(model2_df$Coefficient)
 
 conf_intervals <- as.data.frame(confint(model2, level = 0.95))
 conf_intervals$'95% CI' <- paste("(", round(conf_intervals$'2.5 %', 3), "; ", round(conf_intervals$'97.5 %', 3), ")", sep = "")
@@ -190,12 +186,6 @@ model2_compl <- model2_compl[c(5,1,3,2,4), ]
 model2_compl<- model2_compl[c("RowID", "Coefficient", "95% CI", "p-value")]
 names(model2_compl)[names(model2_compl) == "RowID"] <- "Variable"
 
-CRP_glm <- gt(model2_compl, rownames_to_stub = F) %>%
-  tab_header(title = "CRP values") %>%
-  tab_options(table.font.size = px(10),
-    table.border.top.style = "none")
-
-
 #model3, Myocardial dysfunction, binomial
 data$Myoc <- data$'Myocardial dysfunction'
 model3 <- glm(Myoc ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
@@ -207,6 +197,7 @@ rownames(model3_df) <- c("Intercept", rownames.model)
 model3_df<- model3_df[-1, ]
 model3_df$`p-value` <- ifelse(model3_df$`p-value` < 0.001, "<0.001", round(model3_df$`p-value`, 3))
 model3_df$'Odds ratio'  <- round(model3_df$'Odds ratio' , 3)
+model3_df$'Odds ratio' <- as.character(model3_df$'Odds ratio')
 
 conf_intervals <- as.data.frame(confint(model3, level = 0.95))
 conf_intervals <- exp(conf_intervals)
@@ -221,11 +212,6 @@ model3_compl <- model3_compl[c(5,1,3,2,4), ]
 model3_compl<- model3_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
 names(model3_compl)[names(model3_compl) == "RowID"] <- "Variable"
 
-Myoc_glm <- gt(model3_compl, rownames_to_stub = F) %>%
-  tab_header(title = "Myocardial dysfunction") %>%
-  tab_options(table.font.size = px(10),
-    table.border.top.style = "none")
-
 #model4, ICU, binomial
 model4 <- glm(ICU ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
 model4_df<- as.data.frame(coef(summary(model4)))
@@ -236,6 +222,7 @@ rownames(model4_df) <- c("Intercept", rownames.model)
 model4_df<- model4_df[-1, ]
 model4_df$`p-value` <- ifelse(model4_df$`p-value` < 0.001, "<0.001", round(model4_df$`p-value`, 3))
 model4_df$'Odds ratio'  <- round(model4_df$'Odds ratio' , 3)
+model4_df$'Odds ratio' <- as.character(model4_df$'Odds ratio')
 
 conf_intervals <- as.data.frame(confint(model4, level = 0.95))
 conf_intervals <- exp(conf_intervals)
@@ -250,12 +237,6 @@ model4_compl <- model4_compl[c(5,1,3,2,4), ]
 model4_compl<- model4_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
 names(model4_compl)[names(model4_compl) == "RowID"] <- "Variable"
 
-ICU_glm <- gt(model4_compl, rownames_to_stub = F) %>%
-  tab_header(title = "ICU admission") %>%
-  tab_options(table.font.size = px(10),
-    table.border.top.style = "none")
-
-
 #model5, Coronary Aneurysm, binomial
 model5 <- glm(data$'Coronary Aneurysm' ~ duration + gender + Age.dec + Comorbidities + Therapy, data = data, family = binomial(link = "logit"))
 model5_df<- as.data.frame(coef(summary(model5)))
@@ -266,6 +247,7 @@ rownames(model5_df) <- c("Intercept", rownames.model)
 model5_df<- model5_df[-1, ]
 model5_df$`p-value` <- ifelse(model5_df$`p-value` < 0.001, "<0.001", round(model5_df$`p-value`, 3))
 model5_df$'Odds ratio'  <- round(model5_df$'Odds ratio' , 3)
+model5_df$'Odds ratio' <- as.character(model5_df$'Odds ratio')
 
 conf_intervals <- as.data.frame(confint(model5, level = 0.95))
 conf_intervals <- exp(conf_intervals)
@@ -279,11 +261,58 @@ model5_compl <- merge(model5_df, conf_intervals, by = "RowID")
 model5_compl <- model5_compl[c(5,1,3,2,4), ]
 model5_compl<- model5_compl[c("RowID", "Odds ratio", "95% CI", "p-value")]
 names(model5_compl)[names(model5_compl) == "RowID"] <- "Variable"
+```
+
+#gt tables linear models
+```{r}
+replace_dots <- function(x) {
+  gsub("\\.", "·", x)
+}
+
+model1_compl[] <- lapply(model1_compl, function(x) if(is.character(x)) replace_dots(x) else x)
+
+model2_compl[] <- lapply(model2_compl, function(x) if(is.character(x)) replace_dots(x) else x)
+
+model3_compl[] <- lapply(model3_compl, function(x) if(is.character(x)) replace_dots(x) else x)
+
+model4_compl[] <- lapply(model4_compl, function(x) if(is.character(x)) replace_dots(x) else x)
+
+model5_compl[] <- lapply(model5_compl, function(x) if(is.character(x)) replace_dots(x) else x)
+
+clin_score_lm <- gt(model1_compl, rownames_to_stub = F) %>%
+  tab_header(title = "N° of organ systems involved") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")%>%
+  cols_align(align = "left", columns = 1) %>%
+  cols_align(align = "center", columns = -1)
+
+CRP_glm <- gt(model2_compl, rownames_to_stub = F) %>%
+  tab_header(title = "CRP values") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")%>%
+  cols_align(align = "left", columns = 1) %>%
+  cols_align(align = "center", columns = -1)
+
+Myoc_glm <- gt(model3_compl, rownames_to_stub = F) %>%
+  tab_header(title = "Myocardial dysfunction") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")%>%
+  cols_align(align = "left", columns = 1) %>%
+  cols_align(align = "center", columns = -1)
+
+ICU_glm <- gt(model4_compl, rownames_to_stub = F) %>%
+  tab_header(title = "ICU admission") %>%
+  tab_options(table.font.size = px(10),
+    table.border.top.style = "none")%>%
+  cols_align(align = "left", columns = 1) %>%
+  cols_align(align = "center", columns = -1)
 
 Aneurysm_glm <- gt(model5_compl, rownames_to_stub = F) %>%
   tab_header(title = "Coronary aneurysm") %>%
   tab_options(table.font.size = px(10),
-    table.border.top.style = "none")
+    table.border.top.style = "none")%>%
+  cols_align(align = "left", columns = 1) %>%
+  cols_align(align = "center", columns = -1)
 
 
 
@@ -295,17 +324,6 @@ gtsave(ICU_glm, filename = "Results/ICU_glm.png")
 gtsave(Aneurysm_glm, filename = "Results/Aneurysm_glm.png")
 
 ```
-
-
-```{r}
-result <- kruskal.test(plab_gpt_si_value ~ wave, data = data)
-
-# Display the result
-print(result)
-
-
-```
-
 
 
 #table functions
@@ -499,14 +517,6 @@ data$plab_bilirub_dir_si_value[data$plab_bilirub_dir_si_value < 0.01] <- 0.01
 data$plab_tropon_ti_si_value[data$plab_tropon_ti_si_value < 0.01] <- 0.01
 data$plab_ck_mb_si_value[data$plab_ck_mb_si_value <0.01] <- 0.01
 
-#lab <- c("plab_thrombocyte_si_value", "plab_neutrophil_si_value", "plab_lymphocyte_si_value",  "plab_creatinin_si_value", "plab_bilirub_dir_si_value",  "plab_gpt_si_value", "plab_albumin_si_value", "plab_lipase_si_value", "plab_creatinkin_si_value", "plab_ck_mb_si_value", "plab_probnp_si_value", "plab_tropon_ti_si_value",  "plab_fibrinog_si_value", "plab_ddimere_si_value", "plab_igg_si_value", "plab_procalciton_si_value", "plab_ferritin_si_value", "plab_crp_si_value", "plab_quick_value")
-
-#rather normal or log normal distribution?
-#s <- lapply(data[lab], shapiro.test)
-#s.log <- lapply(log(data[lab]), shapiro.test)
-#shapiro_s <- data.frame(W_value = sapply(s, function(x) x$statistic))
-#shapiro_s.log <- data.frame(W_value = sapply(s.log, function(x) x$statistic))
-
 lab.log <- c("plab_probnp_si_value", 
              "plab_tropon_ti_si_value", 
              "plab_ck_mb_si_value",
@@ -549,42 +559,6 @@ lab.label.log<- c("NT-proBNP (pmol/l)",
 lab.label.nlog<- c("CRP (mg/l)", 
                    "Prothrombin time (%)")
 ```
-
-
-```{r}
-hist(data$plab_tropon_ti_si_value, breaks=100)
-table()
-min(data$plab_tropon_ti_si_value, na.rm=T)
-
-selected_data <- data[lab.log]
-
-# Calculate the minimum value for each selected variable
-hist <- sapply(selected_data, min, na.rm=T)
-
-# Convert the result to a data frame for better presentation
-min_values_df <- data.frame(Variable = names(min_values), Minimum_Value = min_values)
-
-df_subset <- data[, lab.log]
-
-# Function to calculate mean ± SD and log-transformed mean ± SD
-calculate_stats <- function(data) {
-  stats <- data.frame(
-    Variable = names(data),
-    Mean_SD = sapply(data, function(x) paste0(round(mean(x, na.rm = TRUE), 2), " ± ", round(sd(x, na.rm = TRUE), 2))),
-    Log_Mean_SD = sapply(data, function(x) paste0(round(mean(log(x), na.rm = TRUE), 2), " ± ", round(sd(log(x), na.rm = TRUE), 2)))
-  )
-  return(stats)
-}
-
-stats <- calculate_stats(df_subset)
-
-# Print the results
-print(stats)
-write.csv(stats, paste0(dir, "/comp_SD_logSD.csv"), row.names=F)
-
-```
-
-
 
 # table waves
 ```{r}
@@ -713,9 +687,24 @@ table_age_a <- rbind(total.age, gender.age, comorb.age)
 table_age_b <- rbind(total.age, clin.table.age, lab.table.nlog.age, lab.table.log.age, diag.table.age)
 ```
 
+# replace dots
+```{r}
+replace_dots <- function(x) {
+  gsub("\\.", "·", x)
+}
+
+table_wave_a[] <- lapply(table_wave_a, function(x) if(is.character(x)) replace_dots(x) else x)
+
+table_wave_b[] <- lapply(table_wave_b, function(x) if(is.character(x)) replace_dots(x) else x)
+
+table_age_a[] <- lapply(table_age_a, function(x) if(is.character(x)) replace_dots(x) else x)
+
+table_age_b[] <- lapply(table_age_b, function(x) if(is.character(x)) replace_dots(x) else x)
+```
+
+
 #gt tables
 ```{r}
-#make gt tables
 table_wave_a <- table_wave_a %>%
   mutate(group = c("", rep("Demographic profile", min(9, nrow(table_wave_a) - 1))))
   
@@ -765,6 +754,35 @@ gtsave(age_gt_b, filename = "Results/age_groups_table_b.pdf")
 
 ```
 
+#word tables
+```{r}
+table_wave_a <- cbind(RowName = rownames(table_wave_a), table_wave_a)
+table_wave_a_flextable <- flextable(table_wave_a)
+table_wave_a_doc <- read_docx()
+table_wave_a_doc <- body_add_flextable(table_wave_a_doc, table_wave_a_flextable)
+print(table_wave_a_doc, target = "Results/table_wave_a.docx")
+
+table_wave_b <- cbind(RowName = rownames(table_wave_b), table_wave_b)
+table_wave_b_flextable <- flextable(table_wave_b)
+table_wave_b_doc <- read_docx()
+table_wave_b_doc <- body_add_flextable(table_wave_b_doc, table_wave_b_flextable)
+print(table_wave_b_doc, target = "Results/table_wave_b.docx")
+
+table_age_a <- cbind(RowName = rownames(table_age_a), table_age_a)
+table_age_a_flextable <- flextable(table_age_a)
+table_age_a_doc <- read_docx()
+table_age_a_doc <- body_add_flextable(table_age_a_doc, table_age_a_flextable)
+print(table_age_a_doc, target = "Results/table_age_a.docx")
+
+table_age_b <- cbind(RowName = rownames(table_age_b), table_age_b)
+table_age_b_flextable <- flextable(table_age_b)
+table_age_b_doc <- read_docx()
+table_age_b_doc <- body_add_flextable(table_age_b_doc, table_age_b_flextable)
+print(table_age_b_doc, target = "Results/table_age_b.docx")
+```
+
+
+
 #weekly numbers
 ```{r}
 numbers <- c(286, 137, 292, 205)
@@ -795,7 +813,6 @@ p <- p + geom_line(aes(y = COVID * scaling_factor), color = "#6e0511", group = 1
 
 p
 ggsave(filename = paste0(dir, "/Weekly_numbers.png"), dpi=600, height = 3, width = 8.5)
-
 ```
 
 #binomial plots
@@ -993,7 +1010,6 @@ for (i in seq_along(variables)) {
 for (i in seq_along(variables)) {
   age_boxplot(data, variables[i], y_labels[i])
 }
-
 ```
 
 #Outcome
@@ -1094,7 +1110,6 @@ out.plot<- ggplot(out_long, aes(x = Var2, y=percentage, fill = Response)) +
 out.plot
 
 ggsave(filename = paste0(dir, "/outcome_age.png"), dpi=600, height = 3, width = 4)
-
 ```
 
 #Scatter plots
@@ -1112,7 +1127,6 @@ breaks <- as.Date(c("2021-03-28", "2021-07-18", "2022-01-23"))
 
 variable.nlog <- c('Organ system involvement', 'Days of hospitalization', 'CRP')
 y_label.nlog <- c('N° of organ systems', 'Days', 'mg/l')
-
 
 #wave_scatter:
 wave_scatter <- function(data, variable, y_label, breaks, colors2) {
@@ -1193,6 +1207,7 @@ data6 <- subset(data, Age.group=="6-11")
 data12 <- subset(data, Age.group==">11")
 datayoung <- subset(data, Age.group %in% c("<1", "1-5"))
 dataold <- subset(data, Age.group %in% c("6-11", ">11"))
+
 prop.table(table(dataold$'Pleural effusion'))
 
 data$age.category <- ifelse(data$Age.group %in% c("<1", "1-5"), "young", "old")
@@ -1200,9 +1215,6 @@ table(data$age.category)
 contingency_table <- table(data$age.category, data$'Pleural effusion')
 chi_square_result <- chisq.test(contingency_table)
 
-
-
-#taste loss
 prop.table(table(dataO$IVIGs))
 prop.table(table(dataO$Steroids))
 prop.table(table(data$pcomp_ent_type___3, data$wave))
@@ -1326,188 +1338,7 @@ results <- data.frame(
 )
 
 print(results)
-
-
-
 ```
 
-
-
-
-
-
-
-
-
-
-#removed stuff - delete later
-```{r}
-ymax <- max(data$Lymphocytes, na.rm = TRUE)
-p1 <- ggplot(data, aes(x = Age.dec, y = Lymphocytes)) +
-    geom_pointdensity(show.legend = TRUE, size = 3) +
-    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
-    scale_color_viridis() +
-    stat_cor(method = "pearson", label.y = 5, na.rm = TRUE) +
-    stat_regline_equation(label.y = 4.7, aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
-    labs(x = "Age", y = "Per µl (log10)", color = "n/point") +
-    ggtitle("Lymphocytes") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(vjust = 0.5, hjust = 1, size = 8)) +
-    scale_y_log10(limits = c(50, 100000), labels = scales::label_number())
-p1
-ggsave(filename = "Results/scatter/Age_lymphocytes2.png", dpi = 600, height = 3, width = 4.2)
-
-
-
-
-
-#individual chi square testing
-data$comorbidity <- factor(data$pcomorb_pims_chk, levels = c(0, 1), labels = c("no", "yes"))
-t1 <- table(data$comorbidity, data$wave)
-df1<- as.data.frame(t1)
-df1 <- tidyr::spread(df1, Var1, Freq)
-colnames(df1) <- c("factor", "no", "yes")
-df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
-df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
-df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
-df_long1$factor <- factor(df_long1$factor, levels = c("W", "A", "D", "O"))
-
-df_c1=subset(df1, select= c(factor, no, yes))
-rownames(df_c1) <- df_c1[,1]
-df_c1=subset(df_c1, select= c(no, yes))
-chi1<- chisq.test(df_c1)
-
-
-df_c1 <- df_c1[level, ]
-
-combinations <- combn(rownames(df_c1), 2, simplify = FALSE)
-
-chi_function <- function(pair) { 
-  sub_df <- df_c1[pair, ] 
-  test_result <- chisq.test(sub_df) 
-  return(test_result$p.value) }
-
-p_values <- lapply(combinations, chi_function)
-comparisons <- sapply(combinations, function(x) paste(x, collapse = " vs ")) 
-adjusted_p_values <- p.adjust(unlist(p_values), method = "BH")
-
-chi_p <- data.frame(comparison = comparisons, p_value_adjusted = adjusted_p_values)
-
-colnames(chi_p) <- c("comp", "p-value")
-add.global <- data.frame(comparison="global", p_value=chi1$p.value)
-colnames(add.global) <- c("comp", "p-value")
-stats <- rbind(add.global, chi_p)
-stats$'p-value'<- round(stats$'p-value', 3)
-
-p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
-  geom_bar(stat = "identity") + 
-  theme_minimal() +  
-  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
-  ylab("Percentage") + xlab("Variant of concern") + 
-  ggtitle("Comorbidity") + 
-  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = c("white", "white", "white", "white", "black", "black",  "black", "black"))+ 
-  labs(fill=NULL)+
-  theme(legend.position = "right", legend.justification = "top", legend.box.just = "top")
-p1
-stat_plot <- tableGrob(stats, rows = NULL, theme = ttheme_default(base_size = 8))
-
-layout <- c(
-  area(t = 1, l = 1, b = 8, r = 8),
-  area(t = 3.5, l = 7, b = 8, r = 13))
-
-plot<- p1 + stat_plot + 
-  plot_layout(design = layout)
-
-plot
-
-ggsave(filename = paste0(dir, "/comorbidity_plot.png"), dpi=600, height = 3.2, width = 3.6)
-
-
-#lab markers
-#CRP
-table(data$plab_crp_si_value)
-res.aov <- aov(log(plab_crp_si_value) ~ wave, data = data)
-summary(res.aov)
-pv_4<- TukeyHSD(res.aov)
-pv_4 <- as.data.frame(pv_4$wave)
-pv_4$diff <- round(pv_4$diff, 1)
-pv_4 <- pv_4[, c("diff", "p adj")]
-
-crp <- ggplot(data, aes(x=wave, y=plab_crp_si_value))+
-  geom_boxplot(aes(x = factor(wave, level = level)), color=colors3)+
-  labs(x = "Variant of concern", y = "mg/l")+
-  theme_minimal() + 
-  ggtitle("CRP")
-
-crp.tab <- tableGrob(round(pv_4, 3))
-crp.plot<- crp+crp.tab +plot_layout(ncol = 2)
-crp.plot
-
-ggsave(filename = paste0(dir, "/CRP_plot.png"), dpi=600, height = 3, width = 4)
-
-
-
-#p-value for binomials figures
-
-
-
-#comorbidity
-data$comorbidity <- factor(data$pcomorb_pims_chk, levels = c(0, 1), labels = c("no", "yes"))
-df1<- as.data.frame(table(data$comorbidity, data$wave))
-df1 <- tidyr::spread(df1, Var1, Freq)
-colnames(df1) <- c("factor", "no", "yes")
-df1$no_percentage <- (df1$no / (df1$no + df1$yes)) * 100
-df1$yes_percentage <- (df1$yes / (df1$no + df1$yes)) * 100
-df_long1 <- gather(df1, key = "Response", value = "percentage", no_percentage, yes_percentage)
-df_long1$factor <- factor(df_long1$factor, levels = level)
-
-df_c1=subset(df1, select= c(factor, no, yes))
-rownames(df_c1) <- df_c1[,1]
-df_c1=subset(df_c1, select= c(no, yes))
-chi1<- chisq.test(df_c1)
-
-p1 <- ggplot(df_long1, aes(x = factor, y = percentage, fill = Response)) +
-  geom_bar(stat = "identity") + 
-  theme_minimal() +  
-  scale_fill_manual(values = colors, labels = c("No", "Yes")) + 
-  ylab("Percentage") + xlab("Variant of concern") + 
-  ggtitle("Comorbidity") + 
-  geom_text(aes(label = ifelse(Response == "no_percentage", no, yes)), position = position_stack(vjust = 0.5), color = c("white", "white", "white", "white", "black", "black",  "black", "black"))+ 
-  labs(fill=NULL)+
-  theme(legend.position = "right", legend.justification = "top", legend.box.just = "top")+
-  annotate("text", x = Inf, y = Inf, label = paste("p-value:", round(chi1$p.value, 3)),hjust=1, vjust=1, size = 3)
-p1
-
-ggsave(filename = paste0(dir, "/comorbidity_plot.png"), dpi=600, height = 3, width = 3)
-
-
-#log_wave
-p1 <- ggplot(data, aes(x = ppatient_admission_date, y = data$'NT proBNP')) +
-    geom_pointdensity(show.legend = TRUE, size = 3) +
-    geom_smooth(method = "lm", se = TRUE, color = "black", fill = "blue") +
-    scale_color_viridis() +
-    stat_cor(method = "pearson", label.y = 5.2, na.rm = TRUE) +
-    stat_regline_equation(label.y = 4.6, aes(label = after_stat(eq.label)), label.x.npc = "left", na.rm = TRUE) +
-    labs(x = "Date", y = "pg/ml (log10)", color = "n/point") +
-    ggtitle("NT-proBNP") +
-    scale_x_date(limits= c(as.Date(min(data$ppatient_admission_date)),as.Date(max(data$ppatient_admission_date))),   date_breaks = "2 months", date_labels = "%b %Y") +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1, size = 8)) +
-    scale_y_log10(limits = c(0.01, 200000))+
-    geom_rect(aes(xmin = as.Date(-Inf), xmax = as.Date(breaks[1]), ymin = 0.01, ymax = 0.05), fill = colors2[1], inherit.aes = FALSE)+
-    geom_rect(aes(xmin = as.Date(breaks[1]), xmax = as.Date(breaks[2]), ymin = 0.01, ymax = 0.05), fill = colors2[2], inherit.aes = FALSE)+
-    geom_rect(aes(xmin = as.Date(breaks[2]), xmax = as.Date(breaks[3]), ymin = 0.01, ymax = 0.05), fill = colors2[3], inherit.aes = FALSE)+
-    geom_rect(aes(xmin = as.Date(breaks[3]), xmax = as.Date(Inf), ymin = 0.01, ymax = 0.05), fill = colors2[4], inherit.aes = FALSE)+
-    annotate("text", x = min(data$ppatient_admission_date) + (breaks[1] - min(data$ppatient_admission_date)) / 2, y = 0.025, label = "Wildtype", size = 3)+
-    annotate("text", x = breaks[1] + (breaks[2] - breaks[1]) / 2, y = 0.025, label = "Alpha", size = 3, col = "white")+
-    annotate("text", x = breaks[2] + (breaks[3] - breaks[2]) / 2, y = 0.025, label = "Delta", size = 3)+
-    annotate("text", x = breaks[3] + (max(data$ppatient_admission_date) - breaks[3]) / 2, y = 0.025, label = "Omicron", size = 3)
-
-p1
-ggsave(filename = paste0(dir.sc, "/Time_proBNP.png"), plot = p1, dpi = 600, height = 3, width = 4.2)
-
-
-
-```
 
 
